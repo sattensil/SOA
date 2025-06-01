@@ -18,8 +18,8 @@ from sklearn.metrics import mean_squared_error, mean_absolute_error
 import xgboost as xgb
 from xgboost import XGBRegressor
 
-# Import enhanced feature engineering
-from enhanced_feature_engineering import engineer_enhanced_features
+# Import modules
+from advanced_implementation.scripts.enhanced_feature_engineering import engineer_enhanced_features
 
 # Configure logging
 logging.basicConfig(

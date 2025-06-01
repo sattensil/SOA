@@ -1,0 +1,558 @@
+---
+title: "Exam PA December 2018 Rmd Model Solution"
+
+---
+
+> This Rmd file accompanies the model solution report--please refer to commentary there on use of these documents. Commentary from those grading the exam are shown in this format in the non-code sections of this Rmd file.
+
+# Three useful items
+
+> The three useful items were included because they were expected to be useful and would save candidates from having to remember particular code. This code is commented out here so that the entire Rmd file will run, something that is helpful to graders as well. Candidates sometimes did not use these items, typically to their detriment.
+
+I find these three items useful and so am providing them here in case you have need for what they do. The first and second will not run until some of the code is replaced with actual data freame and/or variable names, but the third, which creates a function, needs to be run in order for the function to be used.
+
+> The createDataPartition function in the caret package is nice in that it does stratified sampling based on the first input, rather than a random sample. While most candidates used this code, few indicated this property or checked on it.
+
+The first uses caret to partition a dataset.
+
+```{r}
+library(caret)
+set.seed(1234)
+# partition <- createDataPartition(data.frame$FEATURE, list = FALSE, p = .80)
+# train <- data.frame[partition, ]
+# test <- data.frame[-partition, ]
+# replace "data.frame" with the name of your dataframe (3 times)
+# replace "FEATURE" with the target variable
+# The proportion that goes to the training set need not be .80
+# Consider giving more intuitive names to the two sets created here
+```
+
+> The relevel function was included to allow candidates to easily follow the best practice, for GLMs, to make the largest category the baseline for a factor variable, as noted below. Candidates only sometimes took the hint, which was included to help candidates deal with some difficulties in this particular GLM.
+
+The second is how to change the order of the levels for a factor (categorical variable). This can make a difference for GLM results as the first level becomes the baseline and all but the first level become additional predictive variables. In general, for GLMs it is good set the base (reference) level to the one that has the most observations.
+
+```{r}
+# levels(data.frame$CATEGORICAL)
+# data.frame$CATEGORICAL <- relevel(data.frame$CATEGORICAL, ref = "Level Name")
+# levels(data.frame$CATEGORICAL)
+# the levels function might help you see the effect of the change
+# replace "data.frame" with the name of your dataframe (2 times)
+# replace "CATEGORICAL" with the name of a variable that is a factor (categorical variable) (2 times)
+# replace "Level Name" with the name of the level that should become the first level
+```
+
+> The Poisson loglikelihood was included both here and in Beryl's work below because it is highly appropriate for this problem and yet candidates did not need to be spending their time deriving this and figuring out how to make it work with the offset. Most candidates took this up as the validation measure as intended, though some also checked other measures like RMSE.
+
+The third is a function that measures the quality of fit of predicted versus actual outcomes. It is the loglikelihood function for a Poisson model (up to a constant) and can be used to assess fit against the data used to build the model or against a test set. I will mention the Poisson model later on in this file. As with any loglikelihood function, less negative or more positive values indicate a better fit.
+
+There are some special considerations taken care of by this function. At times when using trees, the predicticted value is slightly negative (a computer issue) when it should be zero. In addition, when the predicted value is zero, the log cannot be taken. If the target is zero, evaluating the loglikehood to zero makes sense. If not, a small value such as 0.000001 can be used. These adjustments are made in the function.
+
+>This one needs to be left uncommented and then run so that the function can be used later.
+
+```{r}
+LLfunction <- function(targets, predicted_values){
+  p_v_zero <- ifelse(predicted_values <= 0, 0, predicted_values)
+  p_v_pos <- ifelse(predicted_values <= 0, 0.000001 ,predicted_values)
+  return(sum(targets*log(p_v_pos)) - sum(p_v_zero))
+}
+# "targets" is a vector containing the actual values for the target variable
+# "predicted_values" is a vector containing the predicted values for the target variable
+```
+
+> Candidates varied in how they used Beryl's initial code. Some started their work after the template, while others put their own code in the midst of the template. Either approach works--the best candidates had code that flowed in a logical order and was annotated to some extent. Occasionally candidates ignored the entire template and started from scratch, with inferior results.
+
+# Load data
+
+Load data provided for project.
+
+```{r}
+# Read in data files
+data.all <- read.csv("MSHA_Mine_Data_2013-2016.csv")
+
+```
+
+# Data exploration and cleaning
+
+To get a sense of the data, here are summary statistics:
+
+```{r}
+summary(data.all)
+```
+
+Not much missing data, so getting rid of any record with a missing value.
+
+```{r}
+data.nomissing <- data.all[!is.na(data.all$MINE_STATUS),]
+data.nomissing <- data.nomissing[!is.na(data.nomissing$US_STATE),]
+data.nomissing <- data.nomissing[!is.na(data.nomissing$PRIMARY),]
+nrow(data.all) - nrow(data.nomissing)
+summary(data.nomissing)
+```
+
+Removed 27 rows. Not sure how to interpret all the PRIMARY categories given there are so many possibilities, will leave out for now to simplify matters.
+
+> First insertion here. It is OK to leave notes to oneself for the report.
+
+Also, US_STATE has too many levels, should note reason and next steps in report.
+
+```{r}
+length(levels(data.all$PRIMARY))
+length(levels(data.all$US_STATE))
+data.reduced <- data.nomissing
+data.reduced$PRIMARY <- NULL
+data.reduced$US_STATE <- NULL
+```
+
+There appears to be some potential outliers and perhaps some other variables that should be eliminated before building a model. No time for that, but will leave you with one graph, a log-log plot of employees vs hours. After that I will move on set up some models.
+
+```{r}
+library(ggplot2)
+p1 <- ggplot(data = data.reduced, aes(x=AVG_EMP_TOTAL, y=EMP_HRS_TOTAL)) + geom_point()
+p1 + scale_x_log10() + scale_y_log10()
+```
+
+> Analyses or exploration that occured in the write-up should be included in the submitted Rmd file.
+
+> The best candidates were thorough in their exploration of the target variable and the relationship between the predictors and the target variable. Many methods were fully valid, including the use of summary statements, boxplots and scatterplots, tables, or simple statistical methods. This model solution includes one approach, but many different approaches could receive full credit. Not every exploration done needs to be included in the write-up, but merit was given to candidates who clearly gave thought to the data problems as seen in their Rmd code.
+
+> The ultimate prediction, the injury rate, was not directly included in the data. Some candidates calculated this explicitly and explored it, recognizing the issue of extreme and unrealistic injury rates. Other candidates noticed the underlying problem, extreme low employee hours, without taking this step. However, a substantial number of candidates did not notice this key issue.
+
+> One possible resolution is to remove observations that had mines that were closed or non-producing, based on the request for "functioning" mines. Another solution is to remove observations with low employee hours, despite having to choose an arbitrary cutoff point. In the end, the remaining target variable should have reasonable values.
+
+> In this chunk, a rudimentary method for removing rows matching a list of factor categories is done, but there are far more efficient methods. Candidates can use whatever R code they know and is available during the exam, but this model solution will stick to basic commands.
+
+Create and explore the target variable of injuries per 2000 employee hours and resolve any issues encountered.
+
+```{r}
+# Create target variable
+data.reduced$INJ_RATE_PER2K <- data.reduced$NUM_INJURIES/(data.reduced$EMP_HRS_TOTAL/2000)
+
+# Examine target Variable
+ggplot(data.reduced, aes(x = INJ_RATE_PER2K)) + geom_histogram()
+summary(data.reduced$INJ_RATE_PER2K)
+
+# Explore the outlier
+data.reduced[data.reduced$INJ_RATE_PER2K == 2000,]
+
+# 1 employee hour? That's weird.
+
+# Explore employee hours
+ggplot(data.reduced, aes(x = EMP_HRS_TOTAL)) + geom_histogram()
+
+# Can't see...explore employee hours with small employee hours
+ggplot(data.reduced[data.reduced$EMP_HRS_TOTAL <= 10000,], aes(x = EMP_HRS_TOTAL)) + geom_histogram()
+
+# Less than 1 full-time employee year seems weird. Summarize these...
+summary(data.reduced[data.reduced$EMP_HRS_TOTAL < 2000,])
+
+# Imbalance in mine status...what percentage of each mine status has small employee hours
+table(data.reduced$MINE_STATUS[data.reduced$EMP_HRS_TOTAL < 2000])/table(data.reduced$MINE_STATUS)
+
+# Remove closed or similar to closed mine status
+no_good <- c("Closed by MSHA","Non-producing","Permanently abandoned","Temporarily closed")
+data.reduced2 <- data.reduced
+for (n in 1:length(no_good)){
+  data.reduced2 <- data.reduced2[data.reduced2$MINE_STATUS != no_good[[n]], ]
+}
+
+# An easier alternative would be the following. Also, droplevels() is a useful function.
+# data.reduced2 <- data.reduced[!(data.reduced$MINE_STATUS %in% no_good),]
+
+# Still observe an injury rate that is too high
+ggplot(data.reduced2, aes(x = INJ_RATE_PER2K)) + geom_histogram()
+
+# Explore employee hours with small employee hours
+ggplot(data.reduced2[data.reduced2$EMP_HRS_TOTAL <= 10000,],aes(x = EMP_HRS_TOTAL)) + geom_histogram()
+
+# Remove low employee hours
+data.reduced3 <- data.reduced2[data.reduced2$EMP_HRS_TOTAL >= 2000,]
+
+# Much more believable injury rates
+ggplot(data.reduced3, aes(x = INJ_RATE_PER2K)) + geom_histogram()
+```
+
+> Only some candidates addressed the issue pointed out in the problem statement that coal miners used different terminology in mine status. One solution, shown here, is to adjust the mine status and merge active and permanently active, but other solutions can also work.
+
+Resolve the coal mining issue that Beryl pointed out by combining remaining coal and non-coal categories together.
+
+```{r}
+table(data.reduced3$MINE_STATUS, data.reduced3$COMMODITY)
+data.reduced3$ADJ_STATUS <- NULL
+data.reduced3$ADJ_STATUS[data.reduced3$MINE_STATUS == "Active"] <- "Open"
+data.reduced3$ADJ_STATUS[data.reduced3$MINE_STATUS == "Full-time permanent"] <- "Open"
+data.reduced3$ADJ_STATUS[data.reduced3$MINE_STATUS == "Intermittent"] <- "Intermittent"
+data.reduced3$ADJ_STATUS <- as.factor(data.reduced3$ADJ_STATUS)
+data.reduced3$MINE_STATUS <- NULL
+```
+
+> Many candidates explored the relationship of the target variable to dependent variables such as year, commodity, seam height, adjusted status or mine status, and type of mine. Comparing to the PCT_HRS variables was more difficult to interpret. Again, this could be done via boxplot, scatterplot, tables, summary statements, or simple analysis.
+
+Explore the relationship between injury rate and the other variables. 
+
+```{r}
+#Check injury rate by year
+summary(data.reduced3$INJ_RATE_PER2K[data.reduced3$YEAR == 2013])
+summary(data.reduced3$INJ_RATE_PER2K[data.reduced3$YEAR == 2014])
+summary(data.reduced3$INJ_RATE_PER2K[data.reduced3$YEAR == 2015])
+summary(data.reduced3$INJ_RATE_PER2K[data.reduced3$YEAR == 2016])
+
+# Years seem stable so we remove years
+data.reduced3$YEAR <- NULL
+
+# Explore relationship between injuries and other variables
+ggplot(data.reduced3,aes(x=COMMODITY, y=INJ_RATE_PER2K)) + geom_boxplot() 
+
+# Too many outliers are making this difficult to see, so to help
+# visualize I remove the highest injury rates
+ggplot(data.reduced3[data.reduced3$INJ_RATE_PER2K < .5,], aes(x=COMMODITY, y=INJ_RATE_PER2K)) + geom_boxplot() 
+ggplot(data.reduced3[data.reduced3$INJ_RATE_PER2K < .5,], aes(x=log(SEAM_HEIGHT), y=INJ_RATE_PER2K)) + geom_point() 
+ggplot(data.reduced3[data.reduced3$INJ_RATE_PER2K < .5,], aes(x=ADJ_STATUS, y=INJ_RATE_PER2K)) + geom_boxplot() 
+ggplot(data.reduced3[data.reduced3$INJ_RATE_PER2K < .5,], aes(x=TYPE_OF_MINE, y=INJ_RATE_PER2K)) + geom_boxplot() 
+
+
+```
+
+> Many candidates appeared to spend too long working on data. Working on the models typically reveals additional data issues, and doing additional data work in the modeling sections is fine--the code does not need to be reordered after the fact.
+
+> Having headers in the code makes it easier to follow.
+
+## Partition into train and test sets
+> Partition into train and test sets.  Many candidates failed to examine train and test sets after splitting to verify that the splits were stratified, even though caret does this automatically.There are a couple different ways to do this.  In this case, we can see that the mean of both the train and test sets are equal.
+
+> The best candidates did some summary statistics on the train and test sets.
+
+```{r}
+library(caret)
+set.seed(1234)
+partition <- createDataPartition(data.reduced3$INJ_RATE_PER2K, list = FALSE, p = .75)
+train <- data.reduced3[partition, ]
+test <- data.reduced3[-partition, ]
+
+# Summary of train and test stats
+print("TRAIN")
+mean(train$INJ_RATE_PER2K)
+
+print("TEST")
+mean(test$INJ_RATE_PER2K)
+```
+
+# Decision tree
+
+> From Beryl...all information provided is intended to be useful, and never to deceive or "trick" candidates.
+
+The following code sets up a decision tree using all the variables in the dataframe "data.reduced." It also uses the full dataset. The left side of the formula is employee hours per year followed by number of injuries. Number of injuries is what is being predicted, but employee hours is used as an offset as the number injuries is expected to be proportional to the number of employee hours worked. This formula format automatically results in a Poisson method being used, but I am stating it explicitly for clarity. Need to make sure to remove EMP_HRS_TOTAL from the formula as that is not a predictor variable.
+
+This code sets arbitrary parameters for the control, then prunes the tree. It then calculates the loglikelihood using the entire dataset. I've not had time to work with training and testing sets. When I worked with the data set cleaned as above, the resulting tree was too complex to easily interpret. Perhaps by working further with the data, controls, and pruning, you can come up with a tree that makes sense and can be explained to the union.
+
+> The output of this tree has a problem due to the preprocessing of the variables. Some of the predictor variables are ones that would not be known in advance. This is corrected in later models, but there is no reason take time to hide such misadventures...just note what happened and move on. In general, if multiple models are tried it is better to have a separate chunck for each, or leave a trail for others to follow that indicates the progression.
+
+```{r}
+library(rpart)
+library(rpart.plot)
+set.seed(153) # because rpart uses cross-validation for estimating complexity parameter
+tree.reduced <- rpart(cbind(EMP_HRS_TOTAL/2000, NUM_INJURIES) ~ . - EMP_HRS_TOTAL,
+                      data = train,
+                      method = "poisson",
+                      control = rpart.control(minbucket = 25, 
+                                              cp = 0, 
+                                              maxdepth = 10))
+plotcp(tree.reduced) # NOTE: this will throw a warning  if your rpart package was updated after 7/11/2018. The frozen copy of R and the packages provided at the exam were as of 6/23/2018 and thus plotcp did not produce a warning.
+
+tree.reduced.pruned <- prune(tree.reduced, 
+                             cp = tree.reduced$cptable[which.min(tree.reduced$cptable[, "xerror"]), "CP"])
+rpart.plot(tree.reduced.pruned)
+printcp(tree.reduced.pruned)
+tree.reduced.pruned
+
+pruned.predict <- (test$EMP_HRS_TOTAL/2000)*predict(tree.reduced.pruned, newdata = test, type = "vector") # The prediction for the loglikelihood function should be the number of injuries, not the injury rate
+print("loglikelihood")
+LLfunction(test$NUM_INJURIES,pruned.predict)
+```
+
+Oh, all the predictors are INJ_RATE_2K. We are essentially using the quantity we are trying to predict to predict it. Repeating with this taken out...
+
+```{r}
+library(rpart)
+library(rpart.plot)
+set.seed(153) # because rpart uses cross-validation for estimating complexity parameter
+tree.reduced <- rpart(cbind(EMP_HRS_TOTAL/2000, NUM_INJURIES) ~ . - EMP_HRS_TOTAL - INJ_RATE_PER2K,
+                      data = train,
+                      method = "poisson",
+                      control = rpart.control(minbucket = 25, 
+                                              cp = 0, 
+                                              maxdepth = 10))
+plotcp(tree.reduced) 
+
+tree.reduced.pruned <- prune(tree.reduced, 
+                             cp = tree.reduced$cptable[which.min(tree.reduced$cptable[, "xerror"]), "CP"])
+rpart.plot(tree.reduced.pruned)
+printcp(tree.reduced.pruned)
+tree.reduced.pruned
+
+pruned.predict <- (test$EMP_HRS_TOTAL/2000)*predict(tree.reduced.pruned, newdata = test, type = "vector") # The prediction for the loglikelihood function should be the number of injuries, not the injury rate
+print("loglikelihood")
+LLfunction(test$NUM_INJURIES,pruned.predict)
+```
+
+> Candidates were expected to build several models by changing hyperparameters with a communicated intent. Communication of this intent (i.e. better fit/interpretability) was required for full credit. Many candidates made model changes, but few stated why. The method of changing the model should result in some balance of fit, stability, and interpretability.
+
+> While it was not necessary to copy code for each model change, it was helpful to demonstrate to the grader that multiple models were tried. Partial credit was given to candidates who documented (by commenting) that multiple models were tried, and what methodology was used for selecting alternative parameters. An easy way to do this was to copy the outputs of plots showing this progression to the written report.
+
+> Most candidates noted that the initial model provided was too complex to be actionable. Many noted that the most important variable was hours underground, but fewer students tied this back to the business problem or noted why this made sense.
+
+> Most candidates correctly used the train set for the data analysis and then calculated predictions on the test set, which required modifying Beryl's hurried setup. 
+
+> Candidates who gave clear names to distinct models had code which was the easiest to follow.
+
+## Modify tree first time
+Tree was way too much. Need to trim it down - will try upping cp to 0.05 - and I need to use train set. This tree is much too small - but note that the most important variable is PCT_HOURS_UNDERGROUND...not surprising.
+
+The test loglikelihood is smaller. Is that an indication of overfitting? Probably not, the loglikelihood is the sum over the observations, so they are on different scales. But we can compare the test loglikihood from one model to another.
+
+```{r}
+set.seed(153)
+tree1 <- rpart(cbind(EMP_HRS_TOTAL/2000, NUM_INJURIES) ~ . - EMP_HRS_TOTAL - INJ_RATE_PER2K,
+                      data = train,
+                      method = "poisson",
+                      control = rpart.control(minbucket = 25, 
+                                              cp = .05, 
+                                              maxdepth = 10))
+plotcp(tree1)
+tree.pruned1 <- prune(tree1, cp = tree1$cptable[which.min(tree1$cptable[, "xerror"]), "CP"])
+rpart.plot(tree.pruned1)
+printcp(tree.pruned1)
+tree.pruned1
+
+# The prediction for the loglikelihood function should be the number of injuries, not the injury rate
+tree.train.predict1 <- (train$EMP_HRS_TOTAL/2000) * predict(tree.pruned1, newdata = train, type = "vector") 
+tree.test.predict1 <- (test$EMP_HRS_TOTAL/2000) * predict(tree.pruned1, newdata = test, type = "vector") 
+
+print("loglikelihood comparison between train and test")
+ll.train.1 <- LLfunction(train$NUM_INJURIES, tree.train.predict1)
+ll.test.1 <- LLfunction(test$NUM_INJURIES, tree.test.predict1)
+print("train")
+print(ll.train.1)
+print("test")
+print(ll.test.1)
+
+```
+
+## Modify tree second and third time
+
+> Beryl's code included a cp plot, another hint that it would be useful to candidates. Few candidates questioned the efficacy of the pruning method and hand-selected a level of complexity that would reduce complexity while hardly sacrificing accuracy.
+
+OK, too small, try for a bigger tree but then take extra step to find a small number of splits that produces a relatively small x-error.
+
+```{r}
+set.seed(123)
+tree2 <- rpart(cbind(EMP_HRS_TOTAL/2000, NUM_INJURIES) ~ . - EMP_HRS_TOTAL - INJ_RATE_PER2K,
+                      data = train[ ,!(names(train) %in% "US_STATE")],
+                      method = "poisson",
+                      control = rpart.control(minbucket = 25, 
+                                              cp = .0005, 
+                                              maxdepth = 10))
+# Apply cost-complexity pruning
+tree.pruned2 <- prune(tree2, cp = tree2$cptable[which.min(tree2$cptable[, "xerror"]), "CP"])
+
+# Look at tree
+rpart.plot(tree.pruned2)
+
+# Look at cp plot and data
+plotcp(tree2)
+printcp(tree2)
+
+# Where is minimum?
+print("Min cp")
+print(min(tree2$cptable[, "xerror"]))
+print("Where is min cp")
+print(tree2$cptable[which.min(tree2$cptable[, "xerror"]), "CP"])
+
+# Looking at tree2 printcp output, choose the complexity parameter at position 4, with 3 splits, as next split increases xerror.
+tree.pruned3 <- prune(tree2, cp = tree2$cptable[4, "CP"])
+
+rpart.plot(tree.pruned3)
+printcp(tree.pruned3)
+tree.pruned3
+
+# The prediction for the loglikelihood function should be the number of injuries, not the injury rate
+tree.test.predict2 <- (test$EMP_HRS_TOTAL/2000) *
+  predict(tree.pruned2, newdata = test, type = "vector")
+
+tree.train.predict3 <- 
+  (train$EMP_HRS_TOTAL/2000) * 
+  predict(tree.pruned3, newdata = train, type = "vector") 
+tree.test.predict3 <- 
+  (test$EMP_HRS_TOTAL/2000) * 
+  predict(tree.pruned3, newdata = test, type = "vector") 
+
+
+print("loglikelihood comparison between train and test")
+
+ll.test.2 <- LLfunction(test$NUM_INJURIES, tree.test.predict2)
+ll.test.3 <- LLfunction(test$NUM_INJURIES, tree.test.predict3)
+ll.train.3 <- LLfunction(train$NUM_INJURIES, tree.train.predict3)
+
+
+print("test2")
+print(ll.test.2)
+
+print("test3")
+print(ll.test.3)
+
+```
+
+Good enough, need to move on, should note in report further tuning possible. Above interactions may be useful for GLM.
+
+# GLM
+
+> From Beryl
+
+The following code produces a poisson GLM. The log link is the default and the offset is a log here because it acts at the level of the linear model. As with the tree, when I ran this using the data I had there were some odd results. There are NAs for "sand & gravel" and something about a rank-deficient fit, which may be tied the huge coefficients for the hours variable and with the fact that they sum to 1 in each case.
+
+```{r}
+glm.reduced <- glm(NUM_INJURIES ~ . - EMP_HRS_TOTAL,
+                   family = poisson(),
+                   offset = log(EMP_HRS_TOTAL/2000),
+                   data = data.reduced)
+summary(glm.reduced)
+
+glm.predict <- predict(glm.reduced, newdata = data.reduced, type = "response")
+# For GLM with an offset, this predict function includes the effect of the offset, producing the number of injuries.
+print("loglikelihood")
+LLfunction(data.reduced$NUM_INJURIES,glm.predict)
+```
+
+> Only some candidates recognized the singularity in the model from Sand and gravel being identical in COMMODITY and TYPE_OF_MINE, though more were able to solve the issue without necessarily recognizing the cause. One solution, shown here, is to create a new variable which combines the two. Other solutions are possible, though only partial credit was given to candidates who simply removed one of the variables, losing potentially predictive information.  
+
+> More candidates addressed the issue of PCT_HRS always summing to 1, leading to a rank-deficient fit. A good, common solution was to remove one of the variables, with stronger candidates stating a reason for which they choose to remove (which then becomes the baseline). Partial credit was given to candidates who removed all the PCT_HRS variable if it was justified or for using stepwise variable selection to remove it, again if it was justified. 
+
+> Most candidates correctly used the train set for the data analysis and then calculated predictions on the test set, which required modifying Beryl's hurried setup. 
+
+Resolve the data issues that arise from the initial GLM run
+
+```{r}
+
+# Table shows that COMMODITY and TYPE_OF_MINE variable have identical sand & gravel factors
+table(data.reduced3$COMMODITY, data.reduced3$TYPE_OF_MINE)
+
+# Fix by removing the variables and including only the interaction term 
+data.reduced4 <- data.reduced3
+data.reduced4$MINE_CHAR <- paste(data.reduced4$TYPE_OF_MINE, data.reduced4$COMMODITY)
+data.reduced4$MINE_CHAR <- relevel(as.factor(data.reduced4$MINE_CHAR),ref="Sand & gravel Sand & gravel")
+
+# Take log of AVG_EMP_TOTAL, as this typically improves fit
+data.reduced4$LOG_AVG_EMP_TOTAL <- log(data.reduced4$AVG_EMP_TOTAL)
+data.reduced4$AVG_EMP_TOTAL <- NULL
+
+# Repeat split of train and test data to capture above changes, but use the same partition as previously so that fair comparisons can be made to the trees and earlier GLMs.
+trainGLM <- data.reduced4[partition, ]
+testGLM <- data.reduced4[-partition, ]
+
+# Summary of train and test stats to check against prior values, all OK
+print("TRAIN")
+mean(trainGLM$INJ_RATE_PER2K)
+print("TEST")
+mean(testGLM$INJ_RATE_PER2K)
+
+# Sand & gravel is baseline, so PCT_HRS_STRIP removed as it most common with this baseline
+summary(data.reduced4[data.reduced4$MINE_CHAR == "Sand & gravel Sand & gravel",])
+
+# Taking out STRIP based on this, giving visible coefficients for all others, also apply just to same train data as trees
+GLM_1 <- glm(NUM_INJURIES ~ . - EMP_HRS_TOTAL - PCT_HRS_STRIP - TYPE_OF_MINE - COMMODITY - INJ_RATE_PER2K,
+                   family = poisson(),
+                   offset = log(EMP_HRS_TOTAL/2000),
+                   data = trainGLM)
+summary(GLM_1)
+glm.predict <- predict(GLM_1, newdata = testGLM, type = "response")
+summary(glm.predict)
+print("GLM_1 LL")
+LLfunction(testGLM$NUM_INJURIES,glm.predict)
+
+```
+
+> Stronger candidates attempted to remove variables that were not important or add features/interactions that could be important. This could be done using stepwise selection, using the variables and interactions determined to be important from the tree model, using p values, or another appropriate method, including manual changes. A validation methodology should be used to assess model accuracy, such as AIC on the train data or, better, loglikelihood on the test data. Mean squared error or other residual anlaysis was not as appropriate for a Poisson model and so was only given partial credit.
+
+Explore improving model fit with stepwise variable selection
+
+```{r}
+library(MASS)
+# Try stepwise variable selection
+GLM_2 <- stepAIC(GLM_1)
+summary(GLM_2)
+glm.predict <- predict(GLM_2, newdata = testGLM, type = "response")
+summary(glm.predict)
+print("GLM_2 LL")
+LLfunction(testGLM$NUM_INJURIES,glm.predict)
+```
+
+Explore adding interactions discovered when modeling using trees...
+
+```{r}
+# Add interactions, starting with formula from GLM_2
+GLM_3 <- glm(NUM_INJURIES ~ SEAM_HEIGHT + PCT_HRS_UNDERGROUND + 
+    PCT_HRS_AUGER + PCT_HRS_OTHER_SURFACE + PCT_HRS_MILL_PREP + 
+    PCT_HRS_OFFICE + MINE_CHAR + LOG_AVG_EMP_TOTAL + 
+    LOG_AVG_EMP_TOTAL:PCT_HRS_UNDERGROUND + LOG_AVG_EMP_TOTAL:PCT_HRS_STRIP,
+                   family = poisson(),
+                   offset = log(EMP_HRS_TOTAL/2000),
+                   data = trainGLM)
+summary(GLM_3)
+glm.predict <- predict(GLM_3, newdata = testGLM, type = "response")
+summary(glm.predict)
+print("GLM_3 LL")
+LLfunction(testGLM$NUM_INJURIES,glm.predict)
+```
+
+> Stronger candidates included some error analysis to assess overall model validity
+
+Refine the model with stepAIC one more time
+
+```{r}
+library(MASS)
+# Try stepwise variable selection again
+GLM_4 <- stepAIC(GLM_3)
+summary(GLM_4)
+glm.predict <- predict(GLM_4, newdata = testGLM, type = "response")
+summary(glm.predict)
+print("GLM_4 LL")
+LLfunction(testGLM$NUM_INJURIES,glm.predict)
+```
+
+Making a plot.
+
+```{r}
+ggplot(testGLM, aes(x=NUM_INJURIES, y=glm.predict)) + geom_point() + xlab('Number of Injuries') + ylab('Predicted Number of Injuries') + ggtitle('GLM 4 Predicted vs Actual')
+
+```
+
+# Final models
+
+> From template
+
+Once analysis is done in above sections, run the final models on all data here (even if training and test sets were previously used) so it is clear how to make the connection between the code above and what is produced for the report.
+
+> Stronger candidates assessed their models and presented the one that would be most effective.
+
+Only running GLM on all data as it performed better while providing more to discuss with union.
+
+```{r}
+
+# Best model suggested by different fits. 
+GLM_Final <- glm(NUM_INJURIES ~ SEAM_HEIGHT + PCT_HRS_UNDERGROUND + 
+    PCT_HRS_MILL_PREP + PCT_HRS_OFFICE + MINE_CHAR + LOG_AVG_EMP_TOTAL + 
+    LOG_AVG_EMP_TOTAL:PCT_HRS_UNDERGROUND + LOG_AVG_EMP_TOTAL:PCT_HRS_STRIP,
+                   family = poisson(),
+                   offset = log(EMP_HRS_TOTAL/2000),
+                   data = data.reduced4)
+summary(GLM_Final)
+
+# Typical seam height
+print("Typical seam height for coal mines")
+mean(data.reduced3[data.reduced3$COMMODITY == "Coal", "SEAM_HEIGHT"])
+
+# Effect of coefficiets
+print("Effect of of a unit change in a predictor, in percent")
+100*(exp(GLM_Final$coefficients) - 1)
+
+```
+

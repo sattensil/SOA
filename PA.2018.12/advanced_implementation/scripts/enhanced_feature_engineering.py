@@ -18,8 +18,8 @@ from sklearn.preprocessing import StandardScaler, OneHotEncoder, FunctionTransfo
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
 
-# Import data loader
-from data_loader import load_and_process_data, PROCESSED_DATA_PATH
+# Import modules
+from advanced_implementation.scripts.data_loader import load_and_process_data, PROCESSED_DATA_PATH
 
 # Configure logging
 logging.basicConfig(
