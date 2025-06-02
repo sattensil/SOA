@@ -69,11 +69,61 @@ def perform_basic_cleaning(data: pd.DataFrame) -> pd.DataFrame:
     # Create a copy to avoid SettingWithCopyWarning
     data_reduced = data_nomissing.copy()
     
+    # Handle field mappings for prediction requests
+    field_mappings = {
+        'CURRENT_STATUS': 'MINE_STATUS',
+        'INJURIES_COUNT': 'NUM_INJURIES',  # Map INJURIES_COUNT to NUM_INJURIES if needed
+        'HOURS_WORKED': 'EMP_HRS_TOTAL'    # Map HOURS_WORKED to EMP_HRS_TOTAL if needed
+    }
+    
+    # Apply field mappings
+    for source, target in field_mappings.items():
+        if source in data_reduced.columns:
+            logger.info(f"Found {source} column, value: {data_reduced[source].iloc[0] if len(data_reduced) > 0 else 'N/A'}")
+            if target not in data_reduced.columns:
+                data_reduced[target] = data_reduced[source]
+                logger.info(f"Mapped {source} to {target}, new value: {data_reduced[target].iloc[0] if len(data_reduced) > 0 else 'N/A'}")
+            else:
+                logger.info(f"Both {source} and {target} exist. {target} value: {data_reduced[target].iloc[0] if len(data_reduced) > 0 else 'N/A'}")
+    
+    # For prediction requests, we need to handle missing NUM_INJURIES
+    if 'NUM_INJURIES' not in data_reduced.columns:
+        logger.info("NUM_INJURIES not found - this appears to be a prediction request, not training data")
+        # For prediction requests, set NUM_INJURIES to 0 (will be ignored during prediction)
+        data_reduced['NUM_INJURIES'] = 0
+        logger.info("Added NUM_INJURIES column with default value 0")
+    
+    # Ensure EMP_HRS_TOTAL is properly set from HOURS_WORKED if needed
+    if 'EMP_HRS_TOTAL' not in data_reduced.columns and 'HOURS_WORKED' in data_reduced.columns:
+        data_reduced['EMP_HRS_TOTAL'] = data_reduced['HOURS_WORKED']
+        logger.info(f"Created EMP_HRS_TOTAL from HOURS_WORKED: {data_reduced['EMP_HRS_TOTAL'].iloc[0] if len(data_reduced) > 0 else 'N/A'}")
+    
     # Create target variable: injury rate per 2000 hours (approximately one work year)
-    data_reduced['INJ_RATE_PER2K'] = data_reduced['NUM_INJURIES'] / (data_reduced['EMP_HRS_TOTAL'] / 2000)
+    try:
+        data_reduced['INJ_RATE_PER2K'] = data_reduced['NUM_INJURIES'] / (data_reduced['EMP_HRS_TOTAL'] / 2000)
+        logger.info("Calculated INJ_RATE_PER2K from NUM_INJURIES and EMP_HRS_TOTAL")
+    except Exception as e:
+        logger.error(f"Error calculating injury rate: {str(e)}")
+        # If this is a prediction request, we can continue without the injury rate
+        data_reduced['INJ_RATE_PER2K'] = 0
+        logger.info("Set default INJ_RATE_PER2K to 0 for prediction")
+    
+    # Ensure MINE_STATUS exists before filtering
+    if 'MINE_STATUS' not in data_reduced.columns:
+        if 'CURRENT_STATUS' in data_reduced.columns:
+            data_reduced['MINE_STATUS'] = data_reduced['CURRENT_STATUS']
+            logger.info(f"Created MINE_STATUS from CURRENT_STATUS before filtering")
+        else:
+            # If neither MINE_STATUS nor CURRENT_STATUS exists, assume all are active
+            data_reduced['MINE_STATUS'] = 'ACTIVE'
+            logger.info(f"Neither MINE_STATUS nor CURRENT_STATUS found, defaulting all to 'ACTIVE'")
+    
+    # Ensure MINE_STATUS is uppercase
+    data_reduced['MINE_STATUS'] = data_reduced['MINE_STATUS'].astype(str).str.upper()
+    logger.info(f"Converted MINE_STATUS to uppercase: {data_reduced['MINE_STATUS'].unique()}")
     
     # Remove closed mines and mines with low employee hours
-    no_good = ["Closed by MSHA", "Non-producing", "Permanently abandoned", "Temporarily closed"]
+    no_good = ["CLOSED BY MSHA", "NON-PRODUCING", "PERMANENTLY ABANDONED", "TEMPORARILY CLOSED"]
     data_reduced2 = data_reduced[~data_reduced['MINE_STATUS'].isin(no_good)]
     logger.info(f"Removed {len(data_reduced) - len(data_reduced2)} closed mines, {len(data_reduced2)} records remaining")
     

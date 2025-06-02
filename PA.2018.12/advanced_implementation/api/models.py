@@ -18,6 +18,7 @@ class MineData(BaseModel):
     COAL_METAL_IND: str = Field(..., description="Coal or metal indicator")
     INJURIES_COUNT: Optional[float] = Field(None, description="Count of injuries (optional for prediction)")
     INJURY_RATE: Optional[float] = Field(None, description="Injury rate (optional for prediction)")
+    US_STATE: str = Field(..., description="US State where the mine is located")
     
     class Config:
         schema_extra = {
@@ -33,7 +34,8 @@ class MineData(BaseModel):
                 "HOURS_WORKED": 90000.0,
                 "COAL_METAL_IND": "C",
                 "INJURIES_COUNT": None,
-                "INJURY_RATE": None
+                "INJURY_RATE": None,
+                "US_STATE": "WV"
             }
         }
 
@@ -57,7 +59,8 @@ class BatchMineData(BaseModel):
                         "HOURS_WORKED": 90000.0,
                         "COAL_METAL_IND": "C",
                         "INJURIES_COUNT": None,
-                        "INJURY_RATE": None
+                        "INJURY_RATE": None,
+                        "US_STATE": "WV"
                     },
                     {
                         "MINE_ID": "7654321",
@@ -71,7 +74,8 @@ class BatchMineData(BaseModel):
                         "HOURS_WORKED": 240000.0,
                         "COAL_METAL_IND": "M",
                         "INJURIES_COUNT": None,
-                        "INJURY_RATE": None
+                        "INJURY_RATE": None,
+                        "US_STATE": "CO"
                     }
                 ]
             }

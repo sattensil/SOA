@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  mine-safety-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8081:8080"
+    volumes:
+      - ./models:/app/models
+      - ./data:/app/data
+      - ./data/features:/app/features
+    environment:
+      - MODELS_DIR=/app/models
+      - DATA_DIR=/app/data
+      - FEATURES_DIR=/app/features
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s

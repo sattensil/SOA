@@ -1,6 +1,6 @@
 # Advanced XGBoost Implementation for Mine Safety Injury Rate Prediction
 
-This project implements an advanced XGBoost model for predicting injury rates in mines based on the MSHA Mine Data from 2013-2016. The implementation includes both a standard pipeline and an enhanced pipeline with extensive debugging and validation features.
+This project implements an advanced XGBoost model for predicting injury rates in mines based on the MSHA Mine Data from 2013-2016. The implementation includes a FastAPI service for serving predictions via a REST API, containerized with Docker for easy deployment.
 
 ## Project Structure
 
@@ -12,10 +12,14 @@ advanced_implementation/
 │   ├── routes.py       # API endpoints implementation
 │   └── utils.py        # Utility functions for the API
 ├── data/               # Data directory for processed data
+│   ├── features/       # Preprocessed features and artifacts
+│   └── processed_data.csv # Cleaned data ready for modeling
 ├── models/             # Directory for saved models
+│   ├── enhanced_feature_names.joblib  # Feature names for the model
+│   ├── enhanced_xgboost_model.joblib  # Serialized XGBoost model
+│   └── enhanced_xgboost_model.json    # XGBoost model in JSON format
 ├── results/            # Directory for results and visualizations
 ├── run_api.py          # Script to run the FastAPI server
-├── run_enhanced.sh     # Shell script to run the enhanced pipeline
 ├── scripts/            # Python scripts for the pipeline
 │   ├── data_loader.py                 # Data loading and basic cleaning
 │   ├── feature_engineering.py         # Feature engineering and preprocessing
@@ -25,10 +29,19 @@ advanced_implementation/
 │   ├── enhanced_model_training.py     # Enhanced model training with debugging
 │   ├── enhanced_main.py               # Main script for the enhanced pipeline
 │   └── prediction_utility.py          # Reusable prediction utility module
+├── simple_prediction.py   # Simplified prediction utility for the API
+├── Dockerfile            # Docker configuration for containerization
+├── docker-compose.yml    # Docker Compose configuration
 └── tests/              # Test directory
     ├── integration/    # Integration tests
-    │   └── test_api.py # API integration tests
+    │   ├── test_api.py # API integration tests
+    │   ├── test_end_to_end_pipeline.py # End-to-end pipeline tests
+    │   └── test_model_prediction.py # Model prediction tests
     └── unit/           # Unit tests
+        ├── test_data_loader.py # Data loader tests
+        ├── test_enhanced_feature_engineering.py # Feature engineering tests
+        ├── test_enhanced_main.py # Main script tests
+        └── test_enhanced_model_training.py # Model training tests
 ```
 
 ## Getting Started
@@ -36,45 +49,38 @@ advanced_implementation/
 ### Prerequisites
 
 - Python 3.10+
-- Required packages: pandas, numpy, scikit-learn, xgboost, matplotlib, seaborn, fastapi, uvicorn, pytest
+- Docker (for containerized deployment)
+- Poetry (for dependency management)
 
 ### Installation
 
 1. Clone the repository
-2. Install dependencies:
+2. Install dependencies with Poetry:
    ```
-   pip install pandas numpy scikit-learn xgboost matplotlib seaborn
+   poetry install
    ```
 
-### Running the Pipeline
+### Running the API
 
-#### Standard Pipeline
+#### Local Development
 
-To run the standard pipeline from data loading to model training:
-
-```bash
-python scripts/main.py
-```
-
-#### Enhanced Pipeline
-
-To run the enhanced pipeline with debugging and validation:
-
-```bash
-./run_enhanced.sh
-```
-
-The enhanced pipeline includes extensive logging and validation to ensure data consistency with the exam solution.
-
-#### FastAPI Service
-
-To run the FastAPI service for model predictions:
+To run the FastAPI service locally for development:
 
 ```bash
 python run_api.py
 ```
 
 This will start the FastAPI server on port 8080. You can access the API documentation at http://localhost:8080/docs.
+
+#### Docker Deployment
+
+To run the API in a Docker container:
+
+```bash
+docker-compose up -d
+```
+
+This will build and start the Docker container with the API running on port 8080.
 
 ### Command Line Arguments
 
@@ -185,7 +191,7 @@ python -m pytest advanced_implementation/tests/integration -v
 
 ## API Implementation
 
-The project includes a FastAPI implementation for serving model predictions:
+The project includes a FastAPI implementation for serving model predictions, containerized with Docker for easy deployment:
 
 ### API Endpoints
 
@@ -203,21 +209,46 @@ The project includes a FastAPI implementation for serving model predictions:
 3. **Documentation**: Interactive API documentation with Swagger UI
 4. **Batch Processing**: Support for batch predictions
 5. **Model Info**: Endpoints for model metadata and feature information
+6. **Field Mapping**: Automatic mapping of field names (e.g., CURRENT_STATUS to MINE_STATUS)
+7. **Missing Value Handling**: Graceful handling of missing fields in prediction requests
 
-### Running the API
+### Field Mappings
+
+The API supports the following field mappings to make it more flexible:
+
+- `CURRENT_STATUS` → `MINE_STATUS`: The API will automatically map the mine status field
+- `INJURIES_COUNT` → `NUM_INJURIES`: For injury count data
+- `HOURS_WORKED` → `EMP_HRS_TOTAL`: For employee hours worked data
+
+This allows the API to accept data in different formats while maintaining compatibility with the underlying model.
+
+### Docker Deployment
+
+The API is containerized using Docker for easy deployment:
 
 ```bash
-python run_api.py
+# Build the Docker image
+docker build -t mine-safety-api .
+
+# Run the container
+docker run -d -p 8081:8080 --name mine-safety-container \
+  -v "$(pwd)/models:/app/models" \
+  -v "$(pwd)/data:/app/data" \
+  -v "$(pwd)/data/features:/app/features" \
+  -e MODELS_DIR=/app/models \
+  -e DATA_DIR=/app/data \
+  -e FEATURES_DIR=/app/features \
+  mine-safety-api
 ```
 
-Access the interactive API documentation at http://localhost:8080/docs
+Access the interactive API documentation at http://localhost:8081/docs
 
-## Next Steps for Production
+## Future Enhancements
 
-This implementation serves as a foundation for more advanced features:
+Potential enhancements for the API:
 
-1. **Containerization**: Package the model and API with Docker
-2. **Monitoring**: Add performance tracking and feature distribution monitoring
-3. **Model Versioning**: Implement MLflow for experiment tracking
-4. **Reliability Features**: Add circuit breakers and fallback mechanisms
-5. **Load Testing**: Ensure the system can handle production traffic
+1. **Monitoring**: Add performance tracking and feature distribution monitoring
+2. **Model Versioning**: Implement MLflow for experiment tracking
+3. **Reliability Features**: Add circuit breakers and fallback mechanisms
+4. **Load Testing**: Ensure the system can handle production traffic
+5. **CI/CD Pipeline**: Automate testing and deployment

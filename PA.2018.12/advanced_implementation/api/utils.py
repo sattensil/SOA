@@ -28,43 +28,47 @@ def load_model_artifacts() -> Tuple[Optional[object], Optional[object], Optional
         Tuple of (model, preprocessor, feature_names)
     """
     try:
-        from scripts.prediction_utility import load_model_and_preprocessor
+        # Use the simplified prediction utility
+        try:
+            from simple_prediction import load_model
+        except ImportError:
+            # Try with absolute import if relative import fails
+            from api.simple_prediction import load_model
         
-        logger.info("Loading model artifacts using prediction_utility")
-        model, preprocessor, feature_names = load_model_and_preprocessor()
-        
-        logger.info("Model artifacts loaded successfully")
-        return model, preprocessor, feature_names
+        model, feature_names = load_model()
+        # Return the model and feature names, with None for preprocessor
+        # since we're not using a serialized preprocessor anymore
+        return model, None, feature_names
     except Exception as e:
         logger.error(f"Error loading model artifacts: {str(e)}")
         return None, None, None
 
 def preprocess_input_data(data: pd.DataFrame, preprocessor: object, feature_names: List[str]) -> np.ndarray:
     """
-    Preprocess input data for prediction.
+    Preprocess input data using the simplified preprocessing function.
     
     Args:
-        data: Input DataFrame
-        preprocessor: Trained preprocessor
-        feature_names: List of feature names
+        data (pd.DataFrame): Input data to preprocess
+        preprocessor (object): Not used in the simplified version
+        feature_names (List[str]): List of feature names
         
     Returns:
-        Preprocessed feature array
+        np.ndarray: Preprocessed features
     """
     try:
-        # Try to use the prediction utility module
-        from scripts.prediction_utility import preprocess_data
-        
-        # Use the preprocess_data function from prediction_utility
-        X = preprocess_data(data, preprocessor)
-        logger.info(f"Successfully preprocessed data with shape {X.shape}")
+        # Use the simplified prediction utility
+        try:
+            from simple_prediction import preprocess_data
+        except ImportError:
+            # Try with absolute import if relative import fails
+            from api.simple_prediction import preprocess_data
+            
+        X = preprocess_data(data, feature_names)
         return X
     except Exception as e:
-        logger.warning(f"Error using preprocessor: {str(e)}. Using fallback method.")
-        # Fallback: create a feature vector with the correct shape
-        X = np.zeros((data.shape[0], len(feature_names)))
-        logger.info(f"Created fallback feature array with shape {X.shape}")
-        return X
+        logger.error(f"Error preprocessing data: {str(e)}")
+        # Fallback to returning empty array with correct shape
+        return np.zeros((data.shape[0], len(feature_names)))
 
 def get_model_metadata() -> Dict[str, Union[str, int, List[str]]]:
     """
@@ -94,26 +98,56 @@ def validate_input_data(data: pd.DataFrame) -> Tuple[bool, str]:
     Returns:
         Tuple of (is_valid, error_message)
     """
-    # Check required columns
+    # Make a copy of the data to avoid modifying the original
+    df = data.copy()
+    
+    # Handle field mappings for validation
+    field_mappings = {
+        'CURRENT_STATUS': 'MINE_STATUS',
+        'INJURIES_COUNT': 'NUM_INJURIES',
+        'HOURS_WORKED': 'EMP_HRS_TOTAL'
+    }
+    
+    # Apply field mappings to the data
+    for source, target in field_mappings.items():
+        if source in df.columns and target not in df.columns:
+            df[target] = df[source]
+            logger.info(f"Mapped {source} to {target} during validation")
+    
+    # Check required columns - note we check after mapping to handle aliases
     required_columns = [
         "MINE_ID", "YEAR", "PRIMARY", "CURRENT_MINE_TYPE", 
-        "CURRENT_STATUS", "FIPS_CNTY", "AVG_EMPLOYEE_CNT", 
-        "HOURS_WORKED", "COAL_METAL_IND"
+        "FIPS_CNTY", "AVG_EMPLOYEE_CNT", "COAL_METAL_IND", "US_STATE"
     ]
     
-    missing_columns = [col for col in required_columns if col not in data.columns]
+    # Also require either CURRENT_STATUS or MINE_STATUS
+    if "CURRENT_STATUS" not in df.columns and "MINE_STATUS" not in df.columns:
+        return False, "Missing required field: CURRENT_STATUS or MINE_STATUS"
+    
+    # Also require either HOURS_WORKED or EMP_HRS_TOTAL
+    if "HOURS_WORKED" not in df.columns and "EMP_HRS_TOTAL" not in df.columns:
+        return False, "Missing required field: HOURS_WORKED or EMP_HRS_TOTAL"
+    
+    # Check for missing columns after mapping
+    missing_columns = [col for col in required_columns if col not in df.columns]
     if missing_columns:
         return False, f"Missing required columns: {', '.join(missing_columns)}"
     
     # Check for empty DataFrame
-    if data.empty:
+    if df.empty:
         return False, "Empty data provided"
     
     # Check data types
     try:
-        data["YEAR"] = data["YEAR"].astype(int)
-        data["AVG_EMPLOYEE_CNT"] = data["AVG_EMPLOYEE_CNT"].astype(float)
-        data["HOURS_WORKED"] = data["HOURS_WORKED"].astype(float)
+        df["YEAR"] = df["YEAR"].astype(int)
+        df["AVG_EMPLOYEE_CNT"] = df["AVG_EMPLOYEE_CNT"].astype(float)
+        
+        # Handle either HOURS_WORKED or EMP_HRS_TOTAL
+        if "HOURS_WORKED" in df.columns:
+            df["HOURS_WORKED"] = df["HOURS_WORKED"].astype(float)
+        if "EMP_HRS_TOTAL" in df.columns:
+            df["EMP_HRS_TOTAL"] = df["EMP_HRS_TOTAL"].astype(float)
+            
     except Exception as e:
         return False, f"Data type conversion error: {str(e)}"
     
