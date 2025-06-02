@@ -54,7 +54,7 @@ def parse_args():
     return parser.parse_args()
 
 
-def run_enhanced_pipeline(args):
+def run_enhanced_pipeline(args) -> Dict[str, float]:
     """
     Run the enhanced pipeline with the given arguments.
     
@@ -122,6 +122,8 @@ def run_enhanced_pipeline(args):
     logger.info(f"Test MAE: {metrics['test_mae']:.4f}")
     
     logger.info("Enhanced pipeline completed successfully")
+    
+    return metrics
 
 
 def main():

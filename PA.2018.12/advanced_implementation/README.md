@@ -114,6 +114,42 @@ The enhanced model achieves the following metrics:
 - Train MAE: 0.0350
 - Test MAE: 0.0354
 
+## Testing Framework
+
+The project includes a comprehensive testing framework with both unit tests and integration tests:
+
+### Unit Tests
+
+Unit tests focus on testing individual components of the pipeline in isolation:
+
+- **Data Loading Tests**: Verify that data cleaning correctly removes closed mines and mines with low employee hours
+- **Feature Engineering Tests**: Ensure feature engineering creates proper train/test dictionaries with features, targets, and weights
+- **Model Training Tests**: Validate model training and evaluation metrics calculation
+- **Main Script Tests**: Verify command-line argument parsing and pipeline orchestration
+
+Run unit tests with:
+
+```bash
+python -m unittest discover -s advanced_implementation/tests/unit -v
+```
+
+### Integration Tests
+
+Integration tests validate the end-to-end functionality of the pipeline:
+
+- **End-to-End Pipeline Test**: Tests the complete pipeline from raw data to saved model and metrics
+- **Prediction Tests**: Verify the ability to load a saved model and make predictions on new data
+- **Model Consistency Tests**: Ensure predictions are consistent for the same input
+- **Batch Prediction Tests**: Validate that the model can handle multiple samples at once
+
+The integration tests use temporary directories and synthetic datasets to isolate from production. They include robust fallback mechanisms to create missing artifacts during testing.
+
+Run integration tests with:
+
+```bash
+python -m unittest discover -s advanced_implementation/tests/integration -v
+```
+
 ## Next Steps for Production
 
 This implementation serves as a foundation for more advanced features:
@@ -124,7 +160,6 @@ This implementation serves as a foundation for more advanced features:
 4. **Model Versioning**: Implement MLflow for experiment tracking
 5. **Reliability Features**: Add circuit breakers and fallback mechanisms
 6. **Load Testing**: Ensure the system can handle production traffic
-7. **Unit Testing**: Add comprehensive unit tests for all components
 
 ## License
 
