@@ -22,6 +22,9 @@ def main():
     # Get the directory of this script
     base_dir = os.path.dirname(os.path.abspath(__file__))
     
+    # Set MLflow tracking URI
+    os.environ['MLFLOW_TRACKING_URI'] = os.path.join(base_dir, 'mlruns')
+    
     # Set model and data directories
     os.environ['MODELS_DIR'] = os.path.join(base_dir, 'models')
     os.environ['DATA_DIR'] = os.path.join(base_dir, 'data')

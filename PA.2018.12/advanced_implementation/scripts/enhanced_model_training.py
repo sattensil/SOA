@@ -19,7 +19,7 @@ import xgboost as xgb
 from xgboost import XGBRegressor
 
 # Import modules
-from advanced_implementation.scripts.enhanced_feature_engineering import engineer_enhanced_features
+from .enhanced_feature_engineering import engineer_enhanced_features
 
 # Configure logging
 logging.basicConfig(

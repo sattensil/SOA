@@ -8,6 +8,13 @@ import numpy as np
 import pandas as pd
 from typing import Dict, List, Tuple, Optional, Union
 
+# Import MLflow utilities if available
+try:
+    from scripts.mlflow_utils import load_model_from_registry, get_active_model_version
+    MLFLOW_AVAILABLE = True
+except ImportError:
+    MLFLOW_AVAILABLE = False
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -20,21 +27,45 @@ MODELS_DIR = os.environ.get('MODELS_DIR', os.path.join(os.path.dirname(os.path.d
 DATA_DIR = os.environ.get('DATA_DIR', os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'data'))
 FEATURES_DIR = os.environ.get('FEATURES_DIR', os.path.join(DATA_DIR, 'features'))
 
-def load_model_artifacts() -> Tuple[Optional[object], Optional[object], Optional[List[str]]]:
+def load_model_artifacts(version: Optional[str] = None) -> Tuple[Optional[object], Optional[object], Optional[List[str]]]:
     """
     Load the model, preprocessor, and feature names.
+    
+    Args:
+        version (str, optional): Model version to load from MLflow registry
+                                 If None, loads the active version or falls back to local files
     
     Returns:
         Tuple of (model, preprocessor, feature_names)
     """
     try:
-        # Use the simplified prediction utility
+        # Try to load from MLflow registry if available
+        if MLFLOW_AVAILABLE:
+            try:
+                # If version is specified, load that version
+                if version is not None:
+                    logger.info(f"Loading model version {version} from MLflow registry")
+                    model, feature_names = load_model_from_registry(version)
+                    return model, None, feature_names
+                
+                # Try to load active version
+                active_version = get_active_model_version()
+                if active_version != "latest":
+                    logger.info(f"Loading active model version {active_version} from MLflow registry")
+                    model, feature_names = load_model_from_registry(active_version)
+                    return model, None, feature_names
+            except Exception as e:
+                logger.warning(f"Could not load model from MLflow registry: {str(e)}")
+                logger.info("Falling back to local model files")
+        
+        # Fall back to simplified prediction utility
         try:
             from simple_prediction import load_model
         except ImportError:
             # Try with absolute import if relative import fails
             from api.simple_prediction import load_model
         
+        logger.info("Loading model from local files")
         model, feature_names = load_model()
         # Return the model and feature names, with None for preprocessor
         # since we're not using a serialized preprocessor anymore
@@ -70,22 +101,51 @@ def preprocess_input_data(data: pd.DataFrame, preprocessor: object, feature_name
         # Fallback to returning empty array with correct shape
         return np.zeros((data.shape[0], len(feature_names)))
 
-def get_model_metadata() -> Dict[str, Union[str, int, List[str]]]:
+def get_model_metadata(version: Optional[str] = None) -> Dict[str, Union[str, int, List[str]]]:
     """
     Get metadata about the model.
+    
+    Args:
+        version (str, optional): Model version to get metadata for
+                                 If None, gets metadata for the active version
     
     Returns:
         Dictionary with model metadata
     """
-    _, _, feature_names = load_model_artifacts()
+    # Try to get active version from MLflow if available
+    active_version = "latest"
+    if MLFLOW_AVAILABLE:
+        try:
+            active_version = get_active_model_version()
+        except Exception as e:
+            logger.warning(f"Could not get active model version from MLflow: {str(e)}")
+    
+    # Load model artifacts for the specified version or active version
+    model, _, feature_names = load_model_artifacts(version)
+    
+    # Get model version info from MLflow if available
+    model_version = version or active_version
+    last_updated = "2025-06-02"  # Default value
+    
+    # Get additional metadata from MLflow if available
+    if MLFLOW_AVAILABLE and model_version != "latest":
+        try:
+            from scripts.mlflow_utils import list_model_versions
+            versions = list_model_versions()
+            for v in versions:
+                if v["version"] == model_version:
+                    last_updated = pd.to_datetime(v["last_updated_timestamp"], unit="ms").strftime("%Y-%m-%d")
+                    break
+        except Exception as e:
+            logger.warning(f"Could not get model version info from MLflow: {str(e)}")
     
     return {
         "model_type": "XGBoost",
-        "model_version": "enhanced_xgboost_v1.0",
+        "model_version": f"enhanced_xgboost_v{model_version}",
         "feature_count": len(feature_names) if feature_names else 0,
         "top_features": feature_names[:10] if feature_names else [],
-        "objective": "reg:squarederror",
-        "last_updated": "2025-06-01"
+        "objective": "count:poisson",
+        "last_updated": last_updated
     }
 
 def validate_input_data(data: pd.DataFrame) -> Tuple[bool, str]:
@@ -98,43 +158,24 @@ def validate_input_data(data: pd.DataFrame) -> Tuple[bool, str]:
     Returns:
         Tuple of (is_valid, error_message)
     """
-    # Make a copy of the data to avoid modifying the original
+    import logging
     df = data.copy()
-    
-    # Handle field mappings for validation
     field_mappings = {
         'CURRENT_STATUS': 'MINE_STATUS',
         'INJURIES_COUNT': 'NUM_INJURIES',
         'HOURS_WORKED': 'EMP_HRS_TOTAL'
     }
-    
-    # Apply field mappings to the data
     for source, target in field_mappings.items():
-        if source in df.columns and target not in df.columns:
+        if source in df.columns:
             df[target] = df[source]
-            logger.info(f"Mapped {source} to {target} during validation")
-    
-    # Check required columns - note we check after mapping to handle aliases
-    required_columns = [
-        "MINE_ID", "YEAR", "PRIMARY", "CURRENT_MINE_TYPE", 
-        "FIPS_CNTY", "AVG_EMPLOYEE_CNT", "COAL_METAL_IND", "US_STATE"
-    ]
-    
-    # Also require either CURRENT_STATUS or MINE_STATUS
-    if "CURRENT_STATUS" not in df.columns and "MINE_STATUS" not in df.columns:
-        return False, "Missing required field: CURRENT_STATUS or MINE_STATUS"
-    
-    # Also require either HOURS_WORKED or EMP_HRS_TOTAL
-    if "HOURS_WORKED" not in df.columns and "EMP_HRS_TOTAL" not in df.columns:
-        return False, "Missing required field: HOURS_WORKED or EMP_HRS_TOTAL"
-    
-    # Check for missing columns after mapping
-    missing_columns = [col for col in required_columns if col not in df.columns]
-    if missing_columns:
-        return False, f"Missing required columns: {', '.join(missing_columns)}"
-    
-    # Check for empty DataFrame
+            logging.info(f"Mapped {source} to {target} during validation")
+    required_fields = ["YEAR", "AVG_EMPLOYEE_CNT", "HOURS_WORKED"]
+    for field in required_fields:
+        if field not in df.columns:
+            logging.error(f"Missing required field: {field}")
+            return False, f"Missing required field: {field}"
     if df.empty:
+        logging.error("Empty data provided")
         return False, "Empty data provided"
     
     # Check data types

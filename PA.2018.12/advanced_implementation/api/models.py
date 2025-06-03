@@ -2,45 +2,69 @@
 Pydantic models for the FastAPI application.
 """
 from pydantic import BaseModel, Field
-from typing import Dict, List, Optional, Union
+from typing import List, Dict, Optional, Union, Any
 
 class MineData(BaseModel):
-    """Input model for a single mine's data."""
+    """Input data for a single mine."""
     MINE_ID: str = Field(..., description="Mine ID")
-    YEAR: int = Field(..., description="Year of the data")
-    PRIMARY: str = Field(..., description="Primary commodity")
-    CURRENT_MINE_TYPE: str = Field(..., description="Current mine type")
-    CURRENT_STATUS: str = Field(..., description="Current status of the mine")
-    CURRENT_MINE_SUBTYPE: Optional[str] = Field(None, description="Current mine subtype")
-    FIPS_CNTY: str = Field(..., description="FIPS county code")
+    MINE_NAME: Optional[str] = Field(None, description="Mine name")
+    CURRENT_STATUS: str = Field(..., description="Current status of the mine (e.g., 'ACTIVE')")
+    CURRENT_MINE_TYPE: Optional[str] = Field(None, description="Current mine type")
+    CURRENT_MINE_STATUS: Optional[str] = Field(None, description="Current mine status")
+    CURRENT_CONTROLLER_ID: Optional[str] = Field(None, description="Current controller ID")
+    CURRENT_OPERATOR_ID: Optional[str] = Field(None, description="Current operator ID")
+    STATE: str = Field(..., description="State where the mine is located")
+    FIPS_CNTY_CD: Optional[str] = Field(None, description="FIPS county code")
+    LONGITUDE: Optional[float] = Field(None, description="Longitude coordinate")
+    LATITUDE: Optional[float] = Field(None, description="Latitude coordinate")
+    PRIMARY: Optional[str] = Field(None, description="Primary commodity")
+    SECONDARY: Optional[str] = Field(None, description="Secondary commodity")
+    CURRENT_MINE_SUBUNIT: Optional[str] = Field(None, description="Current mine subunit")
+    SUBUNIT_CD: Optional[str] = Field(None, description="Subunit code")
+    CAL_YR: int = Field(..., description="Calendar year")
+    YEAR: int = Field(..., description="Year (required for validation/model)")
     AVG_EMPLOYEE_CNT: float = Field(..., description="Average employee count")
     HOURS_WORKED: float = Field(..., description="Hours worked")
-    COAL_METAL_IND: str = Field(..., description="Coal or metal indicator")
-    INJURIES_COUNT: Optional[float] = Field(None, description="Count of injuries (optional for prediction)")
-    INJURY_RATE: Optional[float] = Field(None, description="Injury rate (optional for prediction)")
-    US_STATE: str = Field(..., description="US State where the mine is located")
+    COAL_PRODUCTION: Optional[float] = Field(None, description="Coal production")
+    AVG_EMPLOYEE_CNT_UNDERGROUND: Optional[float] = Field(None, description="Average employee count underground")
+    UNDERGROUND_HOURS: Optional[float] = Field(None, description="Underground hours")
+    AVG_EMPLOYEE_CNT_SURFACE: Optional[float] = Field(None, description="Average employee count surface")
+    SURFACE_HOURS: Optional[float] = Field(None, description="Surface hours")
+    INJURIES_COUNT: Optional[int] = Field(0, description="Number of injuries")
     
     class Config:
         schema_extra = {
             "example": {
                 "MINE_ID": "1234567",
-                "YEAR": 2016,
-                "PRIMARY": "Coal",
+                "MINE_NAME": "Mine Name",
+                "CURRENT_STATUS": "ACTIVE",
                 "CURRENT_MINE_TYPE": "Surface",
-                "CURRENT_STATUS": "Active",
-                "CURRENT_MINE_SUBTYPE": "Strip",
-                "FIPS_CNTY": "01001",
+                "CURRENT_MINE_STATUS": "Active",
+                "CURRENT_CONTROLLER_ID": "Controller ID",
+                "CURRENT_OPERATOR_ID": "Operator ID",
+                "STATE": "WV",
+                "FIPS_CNTY_CD": "01001",
+                "LONGITUDE": 40.0,
+                "LATITUDE": -80.0,
+                "PRIMARY": "Coal",
+                "SECONDARY": "Metal",
+                "CURRENT_MINE_SUBUNIT": "Subunit",
+                "SUBUNIT_CD": "Subunit Code",
+                "CAL_YR": 2022,
+                "YEAR": 2022,
                 "AVG_EMPLOYEE_CNT": 45.0,
                 "HOURS_WORKED": 90000.0,
-                "COAL_METAL_IND": "C",
-                "INJURIES_COUNT": None,
-                "INJURY_RATE": None,
-                "US_STATE": "WV"
+                "COAL_PRODUCTION": 100000.0,
+                "AVG_EMPLOYEE_CNT_UNDERGROUND": 20.0,
+                "UNDERGROUND_HOURS": 40000.0,
+                "AVG_EMPLOYEE_CNT_SURFACE": 25.0,
+                "SURFACE_HOURS": 50000.0,
+                "INJURIES_COUNT": 5
             }
         }
 
 class BatchMineData(BaseModel):
-    """Input model for batch prediction."""
+    """Batch of mine data for prediction."""
     mines: List[MineData]
     
     class Config:
@@ -49,40 +73,62 @@ class BatchMineData(BaseModel):
                 "mines": [
                     {
                         "MINE_ID": "1234567",
-                        "YEAR": 2016,
-                        "PRIMARY": "Coal",
+                        "MINE_NAME": "Mine Name",
+                        "CURRENT_STATUS": "ACTIVE",
                         "CURRENT_MINE_TYPE": "Surface",
-                        "CURRENT_STATUS": "Active",
-                        "CURRENT_MINE_SUBTYPE": "Strip",
-                        "FIPS_CNTY": "01001",
+                        "CURRENT_MINE_STATUS": "Active",
+                        "CURRENT_CONTROLLER_ID": "Controller ID",
+                        "CURRENT_OPERATOR_ID": "Operator ID",
+                        "STATE": "WV",
+                        "FIPS_CNTY_CD": "01001",
+                        "LONGITUDE": 40.0,
+                        "LATITUDE": -80.0,
+                        "PRIMARY": "Coal",
+                        "SECONDARY": "Metal",
+                        "CURRENT_MINE_SUBUNIT": "Subunit",
+                        "SUBUNIT_CD": "Subunit Code",
+                        "CAL_YR": 2022,
                         "AVG_EMPLOYEE_CNT": 45.0,
                         "HOURS_WORKED": 90000.0,
-                        "COAL_METAL_IND": "C",
-                        "INJURIES_COUNT": None,
-                        "INJURY_RATE": None,
-                        "US_STATE": "WV"
+                        "COAL_PRODUCTION": 100000.0,
+                        "AVG_EMPLOYEE_CNT_UNDERGROUND": 20.0,
+                        "UNDERGROUND_HOURS": 40000.0,
+                        "AVG_EMPLOYEE_CNT_SURFACE": 25.0,
+                        "SURFACE_HOURS": 50000.0,
+                        "INJURIES_COUNT": 5
                     },
                     {
                         "MINE_ID": "7654321",
-                        "YEAR": 2016,
-                        "PRIMARY": "Metal",
+                        "MINE_NAME": "Mine Name 2",
+                        "CURRENT_STATUS": "ACTIVE",
                         "CURRENT_MINE_TYPE": "Underground",
-                        "CURRENT_STATUS": "Active",
-                        "CURRENT_MINE_SUBTYPE": "Drift",
-                        "FIPS_CNTY": "01003",
+                        "CURRENT_MINE_STATUS": "Active",
+                        "CURRENT_CONTROLLER_ID": "Controller ID 2",
+                        "CURRENT_OPERATOR_ID": "Operator ID 2",
+                        "STATE": "CO",
+                        "FIPS_CNTY_CD": "01003",
+                        "LONGITUDE": 40.0,
+                        "LATITUDE": -80.0,
+                        "PRIMARY": "Metal",
+                        "SECONDARY": "Coal",
+                        "CURRENT_MINE_SUBUNIT": "Subunit 2",
+                        "SUBUNIT_CD": "Subunit Code 2",
+                        "CAL_YR": 2022,
                         "AVG_EMPLOYEE_CNT": 120.0,
                         "HOURS_WORKED": 240000.0,
-                        "COAL_METAL_IND": "M",
-                        "INJURIES_COUNT": None,
-                        "INJURY_RATE": None,
-                        "US_STATE": "CO"
+                        "COAL_PRODUCTION": 200000.0,
+                        "AVG_EMPLOYEE_CNT_UNDERGROUND": 40.0,
+                        "UNDERGROUND_HOURS": 80000.0,
+                        "AVG_EMPLOYEE_CNT_SURFACE": 30.0,
+                        "SURFACE_HOURS": 60000.0,
+                        "INJURIES_COUNT": 10
                     }
                 ]
             }
         }
 
 class PredictionResponse(BaseModel):
-    """Response model for a single prediction."""
+    """Response for a single prediction."""
     mine_id: str
     predicted_injury_rate: float
     
@@ -95,7 +141,7 @@ class PredictionResponse(BaseModel):
         }
     
 class BatchPredictionResponse(BaseModel):
-    """Response model for batch predictions."""
+    """Response for batch prediction."""
     predictions: List[PredictionResponse]
     model_version: str
     average_predicted_rate: float
@@ -119,7 +165,7 @@ class BatchPredictionResponse(BaseModel):
         }
 
 class ModelInfo(BaseModel):
-    """Model for model information."""
+    """Model information."""
     model_type: str
     model_version: str
     feature_count: int
@@ -140,7 +186,7 @@ class ModelInfo(BaseModel):
         }
 
 class HealthResponse(BaseModel):
-    """Model for health check response."""
+    """Health check response."""
     status: str
     model_loaded: bool
     preprocessor_loaded: bool
@@ -152,6 +198,39 @@ class HealthResponse(BaseModel):
                 "status": "healthy",
                 "model_loaded": True,
                 "preprocessor_loaded": True,
-                "feature_count": 151
+                "feature_count": 15
             }
         }
+
+# Model Version Management Models
+class ModelVersionMetrics(BaseModel):
+    """Metrics for a model version."""
+    test_rmse: Optional[float] = None
+    test_mae: Optional[float] = None
+    test_ll: Optional[float] = None
+
+
+class ModelVersionInfo(BaseModel):
+    """Information about a model version."""
+    version: str
+    created_at: str
+    status: str
+    is_active: bool
+    metrics: ModelVersionMetrics
+    description: Optional[str] = None
+
+
+class ModelVersionsResponse(BaseModel):
+    """Response containing all model versions."""
+    versions: List[ModelVersionInfo]
+    active_version: str
+
+
+class ModelVersionActivateResponse(BaseModel):
+    """Response for activating a model version."""
+    message: str
+
+
+class ActiveModelVersionResponse(BaseModel):
+    """Response containing the active model version."""
+    active_version: str

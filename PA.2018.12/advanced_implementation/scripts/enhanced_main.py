@@ -12,9 +12,9 @@ import argparse
 from typing import Dict, Any
 
 # Import modules
-from advanced_implementation.scripts.data_loader import load_and_process_data
-from advanced_implementation.scripts.enhanced_feature_engineering import engineer_enhanced_features
-from advanced_implementation.scripts.enhanced_model_training import train_enhanced_xgboost_model, save_enhanced_model, plot_enhanced_feature_importance
+from .data_loader import load_and_process_data
+from .enhanced_feature_engineering import engineer_enhanced_features
+from .enhanced_model_training import train_enhanced_xgboost_model, save_enhanced_model, plot_enhanced_feature_importance
 
 # Configure logging
 logging.basicConfig(
@@ -106,6 +106,14 @@ def run_enhanced_pipeline(args) -> Dict[str, float]:
     
     # Train model
     model, metrics = train_enhanced_xgboost_model(train_data, test_data, params)
+    
+    # --- MLflow logging and model registration ---
+    try:
+        from .mlflow_utils import log_model_training
+    except ImportError:
+        from scripts.mlflow_utils import log_model_training
+    run_id = log_model_training(model, params, metrics, train_data['feature_names'], train_data, test_data)
+    # --- End MLflow logging ---
     
     # Step 4: Save model and plot feature importance
     logger.info("Step 4: Saving model and plotting feature importance")

@@ -4,6 +4,7 @@
 """
 Model training module for the Mine Safety Injury Rate Prediction model.
 This script handles training and evaluation of the XGBoost model.
+Integrated with MLflow for experiment tracking and model versioning.
 """
 
 import pandas as pd
@@ -13,10 +14,21 @@ import logging
 import joblib
 import matplotlib.pyplot as plt
 import seaborn as sns
-from typing import Dict, Any, Tuple, List
+import argparse
+from typing import Dict, Any, Tuple, List, Optional
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 import xgboost as xgb
 from xgboost import XGBRegressor
+
+# Import MLflow utilities
+from scripts.mlflow_utils import (
+    log_model_training,
+    register_model_version,
+    load_model_from_registry,
+    get_active_model_version,
+    list_model_versions,
+    start_mlflow_server
+)
 
 # Import feature engineering
 from scripts.feature_engineering import engineer_features
@@ -117,13 +129,14 @@ def train_xgboost_model(train_data: Dict[str, Any], test_data: Dict[str, Any],
     return model, metrics
 
 
-def save_model(model: XGBRegressor, feature_names: List[str]) -> None:
+def save_model(model: XGBRegressor, feature_names: List[str], run_id: Optional[str] = None) -> None:
     """
     Save the trained model to disk.
     
     Args:
         model (XGBRegressor): Trained XGBoost model
         feature_names (List[str]): List of feature names
+        run_id (str, optional): MLflow run ID associated with this model
     """
     # Create directory if it doesn't exist
     os.makedirs(MODELS_DIR, exist_ok=True)
@@ -140,6 +153,13 @@ def save_model(model: XGBRegressor, feature_names: List[str]) -> None:
     feature_names_path = os.path.join(MODELS_DIR, "feature_names.joblib")
     joblib.dump(feature_names, feature_names_path)
     logger.info(f"Saved feature names to {feature_names_path}")
+    
+    # Save MLflow run ID if provided
+    if run_id:
+        run_id_path = os.path.join(MODELS_DIR, "mlflow_run_id.txt")
+        with open(run_id_path, 'w') as f:
+            f.write(run_id)
+        logger.info(f"Saved MLflow run ID to {run_id_path}")
 
 
 def plot_feature_importance(model: XGBRegressor, feature_names: List[str]) -> None:
@@ -179,16 +199,45 @@ def plot_feature_importance(model: XGBRegressor, feature_names: List[str]) -> No
     logger.info(f"Saved feature importance data to {feat_imp_path}")
 
 
-def load_model():
+def load_model(version: Optional[str] = None):
     """
     Load the saved XGBoost model.
+    
+    Args:
+        version (str, optional): Model version to load from MLflow registry
+                                 If None, loads from local file or active version
     
     Returns:
         XGBRegressor: The loaded model
     """
+    # Try to load from MLflow registry if version is specified or MLflow is available
+    try:
+        if version is not None:
+            logger.info(f"Loading model version {version} from MLflow registry")
+            return load_model_from_registry(version)
+        
+        # Try to load active version from MLflow registry
+        active_version = get_active_model_version()
+        if active_version != "latest":
+            logger.info(f"Loading active model version {active_version} from MLflow registry")
+            return load_model_from_registry(active_version)
+    except Exception as e:
+        logger.warning(f"Could not load model from MLflow registry: {str(e)}")
+        logger.info("Falling back to local model file")
+    
+    # Fall back to local file
     if os.path.exists(MODEL_JOBLIB_PATH):
         logger.info(f"Loading model from {MODEL_JOBLIB_PATH}")
-        return joblib.load(MODEL_JOBLIB_PATH)
+        model = joblib.load(MODEL_JOBLIB_PATH)
+        
+        # Load feature names
+        feature_names_path = os.path.join(MODELS_DIR, "feature_names.joblib")
+        if os.path.exists(feature_names_path):
+            feature_names = joblib.load(feature_names_path)
+            return model, feature_names
+        else:
+            logger.warning(f"Feature names not found at {feature_names_path}")
+            return model, None
     else:
         logger.error(f"Model not found at {MODEL_JOBLIB_PATH}")
         raise FileNotFoundError(f"Model not found at {MODEL_JOBLIB_PATH}")
@@ -198,6 +247,43 @@ def main():
     """
     Main function to train and evaluate the XGBoost model.
     """
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(description='Train and evaluate the XGBoost model with MLflow tracking')
+    parser.add_argument('--register', action='store_true', help='Register the model in MLflow registry')
+    parser.add_argument('--description', type=str, default='', help='Description for the model version')
+    parser.add_argument('--list-versions', action='store_true', help='List all model versions')
+    parser.add_argument('--set-active', type=str, help='Set the active model version')
+    parser.add_argument('--start-mlflow', action='store_true', help='Start MLflow server')
+    args = parser.parse_args()
+    
+    # Start MLflow server if requested
+    if args.start_mlflow:
+        start_mlflow_server()
+        print("MLflow server started on http://localhost:5000")
+        return
+    
+    # List model versions if requested
+    if args.list_versions:
+        versions = list_model_versions()
+        print("\nModel Versions:")
+        for v in versions:
+            active_marker = "* (active)" if v["is_active"] else ""
+            print(f"Version {v['version']} {active_marker}")
+            print(f"  Created: {pd.to_datetime(v['creation_timestamp'], unit='ms')}")
+            print(f"  Status: {v['status']}")
+            print(f"  Test RMSE: {v.get('test_rmse', 'N/A')}")
+            print(f"  Test MAE: {v.get('test_mae', 'N/A')}")
+            print(f"  Description: {v.get('description', '')}")
+            print()
+        return
+    
+    # Set active model version if requested
+    if args.set_active:
+        from scripts.mlflow_utils import set_active_model_version
+        set_active_model_version(args.set_active)
+        print(f"Set active model version to: {args.set_active}")
+        return
+    
     # Engineer features
     train_data, test_data = engineer_features()
     
@@ -215,8 +301,23 @@ def main():
     # Train model
     model, metrics = train_xgboost_model(train_data, test_data, params)
     
-    # Save model
-    save_model(model, train_data['feature_names'])
+    # Log to MLflow
+    run_id = log_model_training(
+        model=model,
+        params=params,
+        metrics=metrics,
+        feature_names=train_data['feature_names'],
+        train_data=train_data,
+        test_data=test_data
+    )
+    
+    # Register model if requested
+    if args.register:
+        model_version = register_model_version(run_id, args.description)
+        print(f"Registered model version: {model_version.version}")
+    
+    # Save model locally
+    save_model(model, train_data['feature_names'], run_id)
     
     # Plot feature importance
     plot_feature_importance(model, train_data['feature_names'])

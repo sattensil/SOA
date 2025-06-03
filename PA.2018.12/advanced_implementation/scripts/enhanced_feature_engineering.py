@@ -19,7 +19,7 @@ from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
 
 # Import modules
-from advanced_implementation.scripts.data_loader import load_and_process_data, PROCESSED_DATA_PATH
+from .data_loader import load_and_process_data, PROCESSED_DATA_PATH
 
 # Configure logging
 logging.basicConfig(

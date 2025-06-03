@@ -1,13 +1,31 @@
 """
 API routes for the mine safety injury rate prediction service.
 """
+import os
+import sys
 import logging
+import traceback
 import numpy as np
 import pandas as pd
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, Depends, HTTPException, Query, Path
 from typing import Dict, List, Optional
 
-from .models import MineData, BatchMineData, PredictionResponse, BatchPredictionResponse
+# Import models
+from .models import MineData, BatchMineData, PredictionResponse, BatchPredictionResponse, ModelInfo, HealthResponse
+
+# Import MLflow utilities if available
+try:
+    from scripts.mlflow_utils import (
+        list_model_versions, 
+        set_active_model_version, 
+        get_active_model_version,
+        start_mlflow_server
+    )
+    MLFLOW_AVAILABLE = True
+except ImportError:
+    MLFLOW_AVAILABLE = False
+
+# Import utilities
 from .utils import load_model_artifacts, preprocess_input_data, get_model_metadata, validate_input_data
 
 # Try both import paths to support both local development and containerized environment
@@ -22,24 +40,12 @@ logger = logging.getLogger(__name__)
 # Create router
 router = APIRouter()
 
-# Global variables to store model artifacts
-model = None
-preprocessor = None
-feature_names = None
-
-def get_model():
-    """
-    Dependency to get the model, preprocessor, and feature names.
-    In the simplified approach, preprocessor may be None.
-    """
-    global model, preprocessor, feature_names
-    
-    if model is None or feature_names is None:
-        model, preprocessor, feature_names = load_model_artifacts()
-        
-    if model is None or feature_names is None:
-        raise HTTPException(status_code=503, detail="Model not loaded")
-        
+# Model dependency
+def get_model(version: Optional[str] = None):
+    """Load the model as a dependency."""
+    model, preprocessor, feature_names = load_model_artifacts(version)
+    if model is None:
+        raise HTTPException(status_code=503, detail="Model not loaded. Please try again later.")
     return model, preprocessor, feature_names
 
 @router.get("/")
@@ -47,237 +53,197 @@ async def root():
     """Root endpoint."""
     return {"message": "Mine Safety Injury Rate Prediction API"}
 
-@router.get("/health")
-async def health_check(artifacts=Depends(get_model)):
+# Model Version Management Endpoints
+@router.get("/model-versions", tags=["model-management"])
+async def list_versions():
+    """List all available model versions."""
+    if not MLFLOW_AVAILABLE:
+        raise HTTPException(status_code=501, detail="MLflow integration not available")
+    
+    try:
+        versions = list_model_versions()
+        active_version = get_active_model_version()
+        
+        # Format the response
+        result = {
+            "versions": [
+                {
+                    "version": v["version"],
+                    "created_at": pd.to_datetime(v["creation_timestamp"], unit="ms").isoformat(),
+                    "status": v["status"],
+                    "is_active": v["is_active"],
+                    "metrics": {
+                        "test_rmse": v.get("test_rmse"),
+                        "test_mae": v.get("test_mae"),
+                        "test_ll": v.get("test_ll")
+                    },
+                    "description": v.get("description", "")
+                } for v in versions
+            ],
+            "active_version": active_version
+        }
+        
+        return result
+    except Exception as e:
+        logging.error(f"Error listing model versions: {str(e)}")
+        logging.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"Error listing model versions: {str(e)}")
+
+
+@router.post("/model-versions/{version}/activate", tags=["model-management"])
+async def activate_version(version: str = Path(..., description="Model version to activate")):
+    """Set a model version as the active version."""
+    if not MLFLOW_AVAILABLE:
+        raise HTTPException(status_code=501, detail="MLflow integration not available")
+    
+    try:
+        # Check if version exists
+        versions = list_model_versions()
+        version_exists = any(v["version"] == version for v in versions)
+        
+        if not version_exists:
+            raise HTTPException(status_code=404, detail=f"Model version {version} not found")
+        
+        # Set active version
+        set_active_model_version(version)
+        
+        return {"message": f"Model version {version} activated successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error activating model version: {str(e)}")
+        logging.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"Error activating model version: {str(e)}")
+
+
+@router.get("/model-versions/active", tags=["model-management"])
+async def get_active_version():
+    """Get the currently active model version."""
+    if not MLFLOW_AVAILABLE:
+        raise HTTPException(status_code=501, detail="MLflow integration not available")
+    
+    try:
+        active_version = get_active_model_version()
+        return {"active_version": active_version}
+    except Exception as e:
+        logging.error(f"Error getting active model version: {str(e)}")
+        logging.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"Error getting active model version: {str(e)}")
+
+@router.get("/health", response_model=HealthResponse)
+async def health_check(version: Optional[str] = Query(None, description="Model version to check health for")):
     """Health check endpoint."""
-    model, preprocessor, feature_names = artifacts
+    model, preprocessor, feature_names = load_model_artifacts(version)
+    
     return {
-        "status": "healthy", 
+        "status": "healthy" if model is not None else "unhealthy",
         "model_loaded": model is not None,
         "preprocessor_loaded": preprocessor is not None,
         "feature_count": len(feature_names) if feature_names else 0
     }
 
 @router.post("/predict", response_model=PredictionResponse)
-async def predict(mine_data: MineData, artifacts=Depends(get_model)):
+async def predict_single(
+    mine_data: MineData, 
+    version: Optional[str] = Query(None, description="Model version to use for prediction"),
+    model_data=Depends(get_model)
+):
     """Predict injury rate for a single mine."""
-    model, preprocessor, feature_names = artifacts
+    # If version is specified, load that version specifically
+    if version is not None:
+        model, preprocessor, feature_names = await get_model(version)
+    else:
+        model, preprocessor, feature_names = model_data
     
     try:
-        # Convert to DataFrame for preprocessing
+        # Convert to DataFrame
         df = pd.DataFrame([mine_data.dict()])
-        logger.info(f"Input data: {df.columns.tolist()}")
-        logger.info(f"Input data values: {df.iloc[0].to_dict()}")
-        
-        # Ensure CURRENT_STATUS is mapped to MINE_STATUS directly in the dataframe
-        if 'CURRENT_STATUS' in df.columns:
-            df['MINE_STATUS'] = df['CURRENT_STATUS']
-            logger.info(f"Explicitly mapped CURRENT_STATUS to MINE_STATUS: {df['MINE_STATUS'].iloc[0]}")
         
         # Validate input data
         is_valid, error_message = validate_input_data(df)
         if not is_valid:
-            logger.error(f"Validation error: {error_message}")
             raise HTTPException(status_code=400, detail=error_message)
         
-        logger.info("Input data validation successful")
-        logger.info(f"Data after validation: {df.columns.tolist()}")
-        
-        # Log all data values for debugging
-        for col in df.columns:
-            logger.info(f"Column {col} value: {df[col].iloc[0]}")
-        
-        # Clean data - using perform_basic_cleaning imported as clean_data
-        try:
-            # Ensure MINE_STATUS is present and has the correct value
-            if 'MINE_STATUS' not in df.columns and 'CURRENT_STATUS' in df.columns:
-                df['MINE_STATUS'] = df['CURRENT_STATUS']
-                logger.info(f"Added MINE_STATUS from CURRENT_STATUS before cleaning: {df['MINE_STATUS'].iloc[0]}")
-            
-            # Ensure MINE_STATUS is uppercase ACTIVE for filtering
-            if 'MINE_STATUS' in df.columns:
-                df['MINE_STATUS'] = df['MINE_STATUS'].str.upper()
-                logger.info(f"Converted MINE_STATUS to uppercase: {df['MINE_STATUS'].iloc[0]}")
-            
-            cleaned_data = clean_data(df.copy())
-            logger.info(f"Cleaned data shape: {cleaned_data.shape}")
-            if not cleaned_data.empty:
-                logger.info(f"Cleaned data columns: {cleaned_data.columns.tolist()}")
-                for col in cleaned_data.columns:
-                    logger.info(f"Cleaned column {col} value: {cleaned_data[col].iloc[0]}")
-            else:
-                logger.error("Cleaned data is empty")
-        except Exception as clean_error:
-            logger.error(f"Data cleaning error: {str(clean_error)}")
-            import traceback
-            logger.error(f"Cleaning traceback: {traceback.format_exc()}")
-            raise HTTPException(status_code=500, detail=f"Data cleaning error: {str(clean_error)}")
-        
-        if cleaned_data.empty:
-            logger.error("Data cleaning removed all records")
-            raise HTTPException(status_code=400, detail="Data cleaning removed all records - make sure MINE_STATUS is 'ACTIVE' and HOURS_WORKED >= 5000")
-        
         # Preprocess data
-        try:
-            X = preprocess_input_data(cleaned_data, preprocessor, feature_names)
-            logger.info(f"Preprocessed data shape: {X.shape}")
-        except Exception as preprocess_error:
-            logger.error(f"Preprocessing error: {str(preprocess_error)}")
-            import traceback
-            logger.error(f"Preprocessing traceback: {traceback.format_exc()}")
-            raise HTTPException(status_code=500, detail=f"Preprocessing error: {str(preprocess_error)}")
+        X = preprocess_input_data(df, preprocessor, feature_names)
         
         # Make prediction
-        try:
-            prediction = model.predict(X)[0]
-            logger.info(f"Prediction successful: {float(prediction)}")
-        except Exception as predict_error:
-            logger.error(f"Prediction model error: {str(predict_error)}")
-            import traceback
-            logger.error(f"Prediction traceback: {traceback.format_exc()}")
-            raise HTTPException(status_code=500, detail=f"Prediction model error: {str(predict_error)}")
+        prediction = model.predict(X)[0]
         
+        # Return response
         return {
             "mine_id": mine_data.MINE_ID,
             "predicted_injury_rate": float(prediction)
         }
     except Exception as e:
-        logger.error(f"Prediction error: {str(e)}")
-        import traceback
-        logger.error(f"General error traceback: {traceback.format_exc()}")
+        logging.error(f"Error in prediction: {str(e)}")
+        logging.error(traceback.format_exc())
         raise HTTPException(status_code=500, detail=f"Prediction error: {str(e)}")
 
-
-@router.post("/predict/batch", response_model=BatchPredictionResponse)
-async def predict_batch(batch_data: BatchMineData, artifacts=Depends(get_model)):
+@router.post("/predict-batch", response_model=BatchPredictionResponse)
+async def predict_batch(
+    batch_data: BatchMineData, 
+    version: Optional[str] = Query(None, description="Model version to use for prediction"),
+    model_data=Depends(get_model)
+):
     """Predict injury rates for multiple mines."""
-    model, preprocessor, feature_names = artifacts
+    # If version is specified, load that version specifically
+    if version is not None:
+        model, preprocessor, feature_names = await get_model(version)
+    else:
+        model, preprocessor, feature_names = model_data
     
-    if len(batch_data.mines) == 0:
-        raise HTTPException(status_code=400, detail="Empty batch")
+    # Get model version for response
+    model_version = version or (get_active_model_version() if MLFLOW_AVAILABLE else "latest")
     
     try:
         # Convert to DataFrame
         df = pd.DataFrame([mine.dict() for mine in batch_data.mines])
-        logger.info(f"Batch input data columns: {df.columns.tolist()}")
-        
-        # Log the first record for debugging
-        if not df.empty:
-            logger.info(f"First batch record: {df.iloc[0].to_dict()}")
-        
-        # Apply field mappings before validation
-        field_mappings = {
-            'CURRENT_STATUS': 'MINE_STATUS',
-            'INJURIES_COUNT': 'NUM_INJURIES',
-            'HOURS_WORKED': 'EMP_HRS_TOTAL'
-        }
-        
-        # Apply field mappings
-        for source, target in field_mappings.items():
-            if source in df.columns and target not in df.columns:
-                df[target] = df[source]
-                logger.info(f"Explicitly mapped {source} to {target} for batch prediction")
-        
-        # Ensure MINE_STATUS is uppercase for filtering
-        if 'MINE_STATUS' in df.columns:
-            df['MINE_STATUS'] = df['MINE_STATUS'].astype(str).str.upper()
-            logger.info(f"Converted MINE_STATUS to uppercase: {df['MINE_STATUS'].unique().tolist()}")
-        elif 'CURRENT_STATUS' in df.columns:
-            # Double-check mapping
-            df['MINE_STATUS'] = df['CURRENT_STATUS'].astype(str).str.upper()
-            logger.info(f"Created MINE_STATUS from CURRENT_STATUS: {df['MINE_STATUS'].unique().tolist()}")
         
         # Validate input data
         is_valid, error_message = validate_input_data(df)
         if not is_valid:
-            logger.error(f"Batch validation error: {error_message}")
             raise HTTPException(status_code=400, detail=error_message)
         
-        # Clean data - using perform_basic_cleaning imported as clean_data
-        try:
-            cleaned_data = clean_data(df.copy())
-            logger.info(f"Cleaned batch data shape: {cleaned_data.shape}")
-        except Exception as clean_error:
-            logger.error(f"Batch data cleaning error: {str(clean_error)}")
-            import traceback
-            logger.error(f"Cleaning traceback: {traceback.format_exc()}")
-            raise HTTPException(status_code=500, detail=f"Batch data cleaning error: {str(clean_error)}")
-        
-        if cleaned_data.empty:
-            logger.error("Batch data cleaning removed all records")
-            raise HTTPException(status_code=400, detail="Data cleaning removed all records - make sure MINE_STATUS is 'ACTIVE' and HOURS_WORKED >= 5000")
-        
         # Preprocess data
-        X = preprocess_input_data(cleaned_data, preprocessor, feature_names)
+        X = preprocess_input_data(df, preprocessor, feature_names)
         
         # Make predictions
         predictions = model.predict(X)
         
         # Create response
-        results = []
-        for i, mine in enumerate(batch_data.mines):
-            if i < len(predictions):
-                results.append({
-                    "mine_id": mine.MINE_ID,
-                    "predicted_injury_rate": float(predictions[i])
-                })
+        prediction_list = [
+            {"mine_id": mine_id, "predicted_injury_rate": float(pred)}
+            for mine_id, pred in zip(df["MINE_ID"], predictions)
+        ]
         
+        # Calculate average predicted rate
+        avg_rate = float(np.mean(predictions))
+        
+        # Return response
         return {
-            "predictions": results,
-            "model_version": "enhanced_xgboost_v1.0",
-            "average_predicted_rate": float(np.mean(predictions))
+            "predictions": prediction_list,
+            "model_version": f"enhanced_xgboost_v{model_version}",
+            "average_predicted_rate": avg_rate
         }
     except Exception as e:
-        logger.error(f"Batch prediction error: {str(e)}")
         import traceback
-        logger.error(f"Batch prediction traceback: {traceback.format_exc()}")
-        
-        # Log the DataFrame columns and data for debugging
-        if 'df' in locals():
-            logger.error(f"Batch input DataFrame columns: {df.columns.tolist()}")
-            logger.error(f"Batch input DataFrame head: {df.head(1).to_dict('records')}")
-            # Print all columns to help debug the MINE_STATUS issue
-            for col in df.columns:
-                logger.error(f"Column {col} values: {df[col].tolist()}")
-        
-        # Log the cleaned data if available
-        if 'cleaned_data' in locals():
-            logger.error(f"Cleaned DataFrame columns: {cleaned_data.columns.tolist()}")
-            logger.error(f"Cleaned DataFrame head: {cleaned_data.head(1).to_dict('records')}")
-        
-        # Try to directly debug the MINE_STATUS issue
-        if 'df' in locals() and 'MINE_STATUS' not in df.columns:
-            logger.error("MINE_STATUS column is missing from the DataFrame!")
-            if 'CURRENT_STATUS' in df.columns:
-                logger.error(f"CURRENT_STATUS values: {df['CURRENT_STATUS'].tolist()}")
-                
-        raise HTTPException(status_code=500, detail=f"Batch prediction error: {str(e)}")
-        
-        # Return a more detailed error response for debugging
-        # raise HTTPException(
-        #    status_code=500, 
-        #    detail={
-        #        "error": str(e),
-        #        "columns": df.columns.tolist() if 'df' in locals() else [],
-        #        "traceback": traceback.format_exc()
-        #    }
-        #)
+        tb = traceback.format_exc()
+        logging.error(f"Error in batch prediction: {str(e)}")
+        logging.error(f"Data shape: {df.shape}")
+        logging.error(f"Columns: {df.columns.tolist()}")
+        logging.error(f"First few rows: {df.head().to_dict('records')}")
+        logging.error(tb)
+        raise HTTPException(status_code=500, detail=f"Batch prediction error: {str(e)}\nTraceback:\n{tb}")
 
-@router.get("/model/info")
-async def model_info():
+@router.get("/model-info", response_model=ModelInfo)
+async def get_model_info(version: Optional[str] = Query(None, description="Model version to get info for")):
     """Get information about the model."""
-    try:
-        return get_model_metadata()
-    except Exception as e:
-        logger.error(f"Error getting model info: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error getting model info: {str(e)}")
+    return get_model_metadata(version)
 
 @router.get("/model/features")
-async def model_features(artifacts=Depends(get_model)):
+async def model_features(version: Optional[str] = Query(None, description="Model version to get features for")):
     """Get the features used by the model."""
-    _, _, feature_names = artifacts
+    _, _, feature_names = load_model_artifacts(version)
     
-    return {
-        "feature_count": len(feature_names),
-        "features": feature_names
-    }
+    return {"features": feature_names}
