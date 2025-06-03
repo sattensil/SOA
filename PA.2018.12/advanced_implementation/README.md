@@ -6,43 +6,57 @@ This project implements an advanced XGBoost model for predicting injury rates in
 
 ```
 advanced_implementation/
-├── api/                # FastAPI service implementation
-│   ├── main.py         # FastAPI application setup
-│   ├── models.py       # Pydantic models for request/response validation
-│   ├── routes.py       # API endpoints implementation
-│   └── utils.py        # Utility functions for the API
-├── data/               # Data directory for processed data
-│   ├── features/       # Preprocessed features and artifacts
-│   └── processed_data.csv # Cleaned data ready for modeling
-├── models/             # Directory for saved models
-│   ├── enhanced_feature_names.joblib  # Feature names for the model
-│   ├── enhanced_xgboost_model.joblib  # Serialized XGBoost model
-│   └── enhanced_xgboost_model.json    # XGBoost model in JSON format
-├── results/            # Directory for results and visualizations
-├── run_api.py          # Script to run the FastAPI server
-├── scripts/            # Python scripts for the pipeline
-│   ├── data_loader.py                 # Data loading and basic cleaning
-│   ├── feature_engineering.py         # Feature engineering and preprocessing
-│   ├── model_training.py              # XGBoost model training and evaluation
-│   ├── main.py                        # Main script to run the standard pipeline
-│   ├── enhanced_feature_engineering.py # Enhanced feature engineering with debugging
-│   ├── enhanced_model_training.py     # Enhanced model training with debugging
-│   ├── enhanced_main.py               # Main script for the enhanced pipeline
-│   └── prediction_utility.py          # Reusable prediction utility module
-├── simple_prediction.py   # Simplified prediction utility for the API
-├── Dockerfile            # Docker configuration for containerization
-├── docker-compose.yml    # Docker Compose configuration
-└── tests/              # Test directory
-    ├── integration/    # Integration tests
-    │   ├── test_api.py # API integration tests
-    │   ├── test_end_to_end_pipeline.py # End-to-end pipeline tests
-    │   └── test_model_prediction.py # Model prediction tests
-    └── unit/           # Unit tests
-        ├── test_data_loader.py # Data loader tests
-        ├── test_enhanced_feature_engineering.py # Feature engineering tests
-        ├── test_enhanced_main.py # Main script tests
-        └── test_enhanced_model_training.py # Model training tests
+├── ...
 ```
+
+---
+
+## Data Versioning with DVC
+
+This project uses [DVC](https://dvc.org/) for data version control. DVC tracks the `advanced_implementation/data` directory and stores data versions in a local remote directory (`../dvc_local_storage`). This keeps your Git repo lightweight and enables reproducible experiments.
+
+### DVC Setup (already done)
+- DVC initialized in project as a subdirectory repo
+- `advanced_implementation/data` tracked by DVC (not Git)
+- Local DVC remote: `../dvc_local_storage`
+
+### Typical Workflow
+
+#### 1. Restore Data (after fresh clone or checkout)
+```bash
+poetry run dvc pull
+```
+This restores the latest version of `advanced_implementation/data` from the local DVC remote.
+
+#### 2. Update Data and Track Changes
+- Add or modify files in `advanced_implementation/data`
+- Track changes:
+```bash
+poetry run dvc add advanced_implementation/data
+```
+- Commit DVC metadata to Git:
+```bash
+git add advanced_implementation/data.dvc
+```
+- Push data to remote:
+```bash
+poetry run dvc push
+```
+
+#### 3. Ignore Data in Git
+The `.gitignore` is automatically updated to exclude data files. Only DVC metadata (`data.dvc`) is tracked in Git.
+
+#### 4. Check Data Status
+```bash
+poetry run dvc status
+```
+
+### Notes
+- The local DVC remote (`../dvc_local_storage`) is suitable for testing and small teams. For collaboration or cloud backup, configure a remote like S3, GDrive, or Azure.
+- To remove or roll back data, use DVC commands to ensure reproducibility.
+
+---
+
 
 ## Getting Started
 
