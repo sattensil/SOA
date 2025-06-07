@@ -1,0 +1,14 @@
+aliases: []
+creation_timestamp: 1749182623484
+current_stage: None
+description: null
+last_updated_timestamp: 1749182623484
+name: mine-safety-injury-rate-model
+run_id: 30e88eb52f654878b2df1988bc324aa6
+run_link: null
+source: /Volumes/Scarlett/1. Areas/E. Have My Dream Job/GitHub/SOA/PA.2018.12/mlruns/748364401913718640/30e88eb52f654878b2df1988bc324aa6/artifacts/model
+status: READY
+status_message: null
+storage_location: /Volumes/Scarlett/1. Areas/E. Have My Dream Job/GitHub/SOA/PA.2018.12/mlruns/748364401913718640/30e88eb52f654878b2df1988bc324aa6/artifacts/model
+user_id: null
+version: 1

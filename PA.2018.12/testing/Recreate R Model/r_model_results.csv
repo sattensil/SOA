@@ -1,0 +1,6 @@
+"Class","Accuracy"
+"Class 0 (No injuries)",0.904286718200984
+"Class 1 (1 injury)",0.284854563691073
+"Class 2 (2 injuries)",0.113314447592068
+"Class 3+ (3+ injuries)",0.607079646017699
+"Overall",0.786378737541528
