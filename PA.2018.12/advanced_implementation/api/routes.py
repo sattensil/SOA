@@ -5,6 +5,9 @@ import os
 import sys
 import logging
 import traceback
+import time
+from typing import Dict, List, Optional
+
 import numpy as np
 import pandas as pd
 from fastapi import APIRouter, Depends, HTTPException, Query, Path
@@ -12,6 +15,9 @@ from typing import Dict, List, Optional
 
 # Import models
 from .models import MineData, BatchMineData, PredictionResponse, BatchPredictionResponse, ModelInfo, HealthResponse
+
+# Import Prometheus metrics
+from .metrics import model_version_counter, prediction_latency
 
 # Import MLflow utilities if available
 try:
@@ -40,8 +46,8 @@ logger = logging.getLogger(__name__)
 # Create router
 router = APIRouter()
 
-# Model dependency
-def get_model(version: Optional[str] = None):
+# Model dependency - make it synchronous since load_model_artifacts is synchronous
+async def get_model(version: Optional[str] = None):
     """Load the model as a dependency."""
     model, preprocessor, feature_names = load_model_artifacts(version)
     if model is None:
@@ -130,6 +136,7 @@ async def get_active_version():
         logging.error(traceback.format_exc())
         raise HTTPException(status_code=500, detail=f"Error getting active model version: {str(e)}")
 
+
 @router.get("/health", response_model=HealthResponse)
 async def health_check(version: Optional[str] = Query(None, description="Model version to check health for")):
     """Health check endpoint."""
@@ -151,9 +158,15 @@ async def predict_single(
     """Predict injury rate for a single mine."""
     # If version is specified, load that version specifically
     if version is not None:
-        model, preprocessor, feature_names = await get_model(version)
+        # Use load_model_artifacts directly instead of awaiting get_model
+        model, preprocessor, feature_names = load_model_artifacts(version)
+        if model is None:
+            raise HTTPException(status_code=503, detail="Model not loaded. Please try again later.")
     else:
         model, preprocessor, feature_names = model_data
+    
+    # Get the actual model version being used - use synchronous call
+    model_version = version if version is not None else (get_active_model_version() if MLFLOW_AVAILABLE else "latest")
     
     try:
         # Convert to DataFrame
@@ -167,8 +180,14 @@ async def predict_single(
         # Preprocess data
         X = preprocess_input_data(df, preprocessor, feature_names)
         
-        # Make prediction
+        # Measure prediction time and increment metrics
+        start_time = time.time()
         prediction = model.predict(X)[0]
+        prediction_time = time.time() - start_time
+        
+        # Update Prometheus metrics
+        model_version_counter.labels(version=str(model_version)).inc()
+        prediction_latency.labels(version=str(model_version)).observe(prediction_time)
         
         # Return response
         return {
@@ -189,11 +208,14 @@ async def predict_batch(
     """Predict injury rates for multiple mines."""
     # If version is specified, load that version specifically
     if version is not None:
-        model, preprocessor, feature_names = await get_model(version)
+        # Use load_model_artifacts directly instead of awaiting get_model
+        model, preprocessor, feature_names = load_model_artifacts(version)
+        if model is None:
+            raise HTTPException(status_code=503, detail="Model not loaded. Please try again later.")
     else:
         model, preprocessor, feature_names = model_data
     
-    # Get model version for response
+    # Get model version for response - use synchronous call
     model_version = version or (get_active_model_version() if MLFLOW_AVAILABLE else "latest")
     
     try:
@@ -208,23 +230,29 @@ async def predict_batch(
         # Preprocess data
         X = preprocess_input_data(df, preprocessor, feature_names)
         
-        # Make predictions
+        # Measure prediction time and increment metrics
+        start_time = time.time()
         predictions = model.predict(X)
+        prediction_time = time.time() - start_time
         
-        # Create response
-        prediction_list = [
-            {"mine_id": mine_id, "predicted_injury_rate": float(pred)}
-            for mine_id, pred in zip(df["MINE_ID"], predictions)
+        # Update Prometheus metrics - increment counter for each prediction in batch
+        model_version_counter.labels(version=str(model_version)).inc(len(predictions))
+        prediction_latency.labels(version=str(model_version)).observe(prediction_time)
+        
+        # Create list of predictions
+        prediction_results = [
+            {"mine_id": mine.MINE_ID, "predicted_injury_rate": float(pred)} 
+            for mine, pred in zip(batch_data.mines, predictions)
         ]
         
-        # Calculate average predicted rate
-        avg_rate = float(np.mean(predictions))
+        # Calculate average predicted injury rate
+        avg_predicted_rate = float(np.mean(predictions))
         
         # Return response
         return {
-            "predictions": prediction_list,
-            "model_version": f"enhanced_xgboost_v{model_version}",
-            "average_predicted_rate": avg_rate
+            "predictions": prediction_results,
+            "model_version": str(model_version),
+            "average_predicted_rate": avg_predicted_rate
         }
     except Exception as e:
         import traceback
@@ -236,8 +264,8 @@ async def predict_batch(
         logging.error(tb)
         raise HTTPException(status_code=500, detail=f"Batch prediction error: {str(e)}\nTraceback:\n{tb}")
 
-@router.get("/model-info", response_model=ModelInfo)
-async def get_model_info(version: Optional[str] = Query(None, description="Model version to get info for")):
+@router.get("/model/info", response_model=ModelInfo)
+async def model_info(version: Optional[str] = Query(None, description="Model version to get info for")):
     """Get information about the model."""
     return get_model_metadata(version)
 

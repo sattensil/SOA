@@ -6,11 +6,12 @@ services:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "8081:8080"
+      - "8080:8080"
     volumes:
       - ./models:/app/models
       - ./data:/app/data
       - ./data/features:/app/features
+      - ./mlruns:/app/mlruns
     environment:
       - MODELS_DIR=/app/models
       - DATA_DIR=/app/data
@@ -22,3 +23,32 @@ services:
       timeout: 10s
       retries: 3
       start_period: 10s
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    volumes:
+      - ../prometheus.yml:/etc/prometheus/prometheus.yml
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+    ports:
+      - 9090:9090
+    depends_on:
+      - mine-safety-api
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - 3000:3000
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_INSTALL_PLUGINS=frser-sqlite-datasource
+    depends_on:
+      - prometheus
+    volumes:
+      - grafana-storage:/var/lib/grafana
+      - ./data/metrics:/var/lib/grafana/metrics
+
+volumes:
+  grafana-storage:

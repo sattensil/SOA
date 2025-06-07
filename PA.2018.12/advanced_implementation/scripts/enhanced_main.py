@@ -15,6 +15,25 @@ from typing import Dict, Any
 from .data_loader import load_and_process_data
 from .enhanced_feature_engineering import engineer_enhanced_features
 from .enhanced_model_training import train_enhanced_xgboost_model, save_enhanced_model, plot_enhanced_feature_importance
+import pandas as pd # For MLflow list_versions output
+
+# Import MLflow utilities
+try:
+    from .mlflow_utils import (
+        log_model_training, # Already used, but good to list all
+        register_model_version,
+        list_model_versions,
+        set_active_model_version,
+        start_mlflow_server
+    )
+except ImportError:
+    from scripts.mlflow_utils import ( # Fallback for different execution contexts
+        log_model_training,
+        register_model_version,
+        list_model_versions,
+        set_active_model_version,
+        start_mlflow_server
+    )
 
 # Configure logging
 logging.basicConfig(
@@ -31,7 +50,7 @@ def parse_args():
     Returns:
         argparse.Namespace: Parsed arguments
     """
-    parser = argparse.ArgumentParser(description='Run the enhanced Mine Safety Injury Rate Prediction pipeline')
+    parser = argparse.ArgumentParser(description='Run the enhanced Mine Safety Injury Rate Prediction pipeline with MLflow integration')
     
     # Data arguments
     parser.add_argument('--test-size', type=float, default=0.25,
@@ -50,6 +69,24 @@ def parse_args():
                         help='Skip data loading and processing (default: False)')
     parser.add_argument('--skip-features', action='store_true',
                         help='Skip feature engineering (default: False)')
+    parser.add_argument('--optimize_threshold', action='store_true',
+                        help='Optimize classification threshold for binary model')
+    parser.add_argument('--two_stage', action='store_true',
+                        help='Use two-stage modeling approach')
+    parser.add_argument('--verbose', action='store_true',
+                        help='Enable verbose output (default: False)')
+
+    # MLflow arguments
+    parser.add_argument('--register', action='store_true',
+                        help='Register the model in MLflow registry')
+    parser.add_argument('--description', type=str, default='Enhanced XGBoost Model',
+                        help='Description for the model version (default: Enhanced XGBoost Model)')
+    parser.add_argument('--list-versions', action='store_true',
+                        help='List all model versions from MLflow')
+    parser.add_argument('--set-active', type=str,
+                        help='Set the active model version in MLflow (provide version string)')
+    parser.add_argument('--start-mlflow', action='store_true',
+                        help='Start MLflow server and exit')
     
     return parser.parse_args()
 
@@ -105,7 +142,7 @@ def run_enhanced_pipeline(args) -> Dict[str, float]:
     }
     
     # Train model
-    model, metrics = train_enhanced_xgboost_model(train_data, test_data, params)
+    model, metrics = train_enhanced_xgboost_model(train_data, test_data, params, optimize_threshold=args.optimize_threshold, two_stage=args.two_stage)
     
     # --- MLflow logging and model registration ---
     try:
@@ -114,6 +151,14 @@ def run_enhanced_pipeline(args) -> Dict[str, float]:
         from scripts.mlflow_utils import log_model_training
     run_id = log_model_training(model, params, metrics, train_data['feature_names'], train_data, test_data)
     # --- End MLflow logging ---
+
+    # Register model if requested
+    if args.register:
+        try:
+            model_version_details = register_model_version(run_id, args.description)
+            logger.info(f"Registered model version: {model_version_details.version} (Run ID: {run_id}) with description: '{args.description}'")
+        except Exception as e:
+            logger.error(f"Failed to register model version for run_id {run_id}: {e}")
     
     # Step 4: Save model and plot feature importance
     logger.info("Step 4: Saving model and plotting feature importance")
@@ -137,9 +182,62 @@ def run_enhanced_pipeline(args) -> Dict[str, float]:
 def main():
     """
     Main function to run the enhanced pipeline.
+    Handles MLflow utility commands before pipeline execution.
     """
     args = parse_args()
+
+    # Handle MLflow utility commands that exit early
+    if args.start_mlflow:
+        start_mlflow_server()
+        print("MLflow server started on http://localhost:5000. Access it in your browser.")
+        return
+
+    if args.list_versions:
+        try:
+            versions = list_model_versions()
+            if not versions:
+                print("No model versions found in MLflow registry.")
+                return
+            print("\nMLflow Model Versions:")
+            for v_info in versions:
+                active_marker = "* (active)" if v_info.get("is_active") else ""
+                print(f"  Version: {v_info.get('version')} {active_marker}")
+                created_ts = v_info.get('creation_timestamp')
+                print(f"    Created: {pd.to_datetime(created_ts, unit='ms') if created_ts else 'N/A'}")
+                print(f"    Status: {v_info.get('status', 'N/A')}")
+                # Assuming metrics might be nested or directly available
+                metrics_dict = v_info.get('metrics', {}) if isinstance(v_info.get('metrics'), dict) else {}
+                run_data_metrics = v_info.get('run_data', {}).get('metrics', {}) if isinstance(v_info.get('run_data'), dict) else {}
+                final_metrics = {**metrics_dict, **run_data_metrics} # Merge them, run_data_metrics might be more up-to-date
+                print(f"    Test RMSE: {final_metrics.get('test_rmse', 'N/A')}")
+                print(f"    Test MAE: {final_metrics.get('test_mae', 'N/A')}")
+                print(f"    Description: {v_info.get('description', '')}")
+                print()
+        except Exception as e:
+            print(f"Error listing model versions: {e}")
+        return
+
+    if args.set_active:
+        try:
+            set_active_model_version(args.set_active)
+            print(f"Successfully set active model version to: {args.set_active}")
+        except Exception as e:
+            print(f"Failed to set active model version {args.set_active}: {e}")
+        return
+
+    # If no early-exit MLflow commands, run the main pipeline
     run_enhanced_pipeline(args)
+    
+    # Update metrics database if a model was registered
+    if args.register:
+        try:
+            print("Updating metrics database with latest model information...")
+            # Import here to avoid circular imports
+            from scripts.export_metrics_to_db import export_metrics_to_db
+            export_metrics_to_db()
+            print("Metrics database updated successfully")
+        except Exception as e:
+            print(f"Warning: Failed to update metrics database: {e}")
 
 
 if __name__ == "__main__":

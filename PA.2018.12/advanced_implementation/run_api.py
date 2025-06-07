@@ -36,11 +36,13 @@ def main():
     logger.info(f"Features directory: {os.environ['FEATURES_DIR']}")
     
     # Run the server
+    port = int(os.environ.get('PORT', 8080))
+    logger.info(f"Starting server on port {port}")
     uvicorn.run(
         "api.main:app",
         host="0.0.0.0",
-        port=8080,
-        reload=True,
+        port=port,
+        reload=False,
         log_level="info",
     )
 

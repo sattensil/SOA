@@ -58,42 +58,48 @@ def load_model_artifacts(version: Optional[str] = None) -> Tuple[Optional[object
                 logger.warning(f"Could not load model from MLflow registry: {str(e)}")
                 logger.info("Falling back to local model files")
         
-        # Fall back to simplified prediction utility
+        # Fall back to prediction_utility for local files
         try:
-            from simple_prediction import load_model
-        except ImportError:
-            # Try with absolute import if relative import fails
-            from api.simple_prediction import load_model
-        
-        logger.info("Loading model from local files")
-        model, feature_names = load_model()
-        # Return the model and feature names, with None for preprocessor
-        # since we're not using a serialized preprocessor anymore
-        return model, None, feature_names
+            # Ensure the scripts directory is in PYTHONPATH or use relative import if appropriate
+            # For now, assuming 'scripts' is a top-level directory accessible via PYTHONPATH
+            from scripts.prediction_utility import load_model_and_preprocessor
+        except ImportError as e_import:
+            logger.error(f"Failed to import load_model_and_preprocessor from scripts.prediction_utility: {e_import}")
+            # If this import fails, the API won't be able to load local models.
+            # Depending on requirements, you might re-raise or return None to indicate failure.
+            raise # Or return None, None, None if that's preferred error handling
+
+        logger.info("Loading model from local files using prediction_utility")
+        model, preprocessor, feature_names = load_model_and_preprocessor()
+        # Return the model, preprocessor, and feature names
+        return model, preprocessor, feature_names
     except Exception as e:
         logger.error(f"Error loading model artifacts: {str(e)}")
         return None, None, None
 
 def preprocess_input_data(data: pd.DataFrame, preprocessor: object, feature_names: List[str]) -> np.ndarray:
     """
-    Preprocess input data using the simplified preprocessing function.
+    Preprocess input data using the preprocessor from scripts.
     
     Args:
         data (pd.DataFrame): Input data to preprocess
-        preprocessor (object): Not used in the simplified version
+        preprocessor (object): Preprocessor object from load_model_artifacts
         feature_names (List[str]): List of feature names
         
     Returns:
         np.ndarray: Preprocessed features
     """
     try:
-        # Use the simplified prediction utility
-        try:
-            from simple_prediction import preprocess_data
-        except ImportError:
-            # Try with absolute import if relative import fails
-            from api.simple_prediction import preprocess_data
-            
+        # First try to use the preprocessor directly if available
+        if preprocessor is not None:
+            logger.info("Using provided preprocessor for data transformation")
+            X = preprocessor.transform(data)
+            return X
+        
+        # If no preprocessor is available (e.g., when loading from MLflow),
+        # use the prediction_utility's preprocess_data function
+        from scripts.prediction_utility import preprocess_data
+        logger.info("Using prediction_utility.preprocess_data for preprocessing")
         X = preprocess_data(data, feature_names)
         return X
     except Exception as e:

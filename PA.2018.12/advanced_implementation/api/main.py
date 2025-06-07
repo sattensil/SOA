@@ -4,10 +4,13 @@ FastAPI application for mine safety injury rate prediction.
 import os
 import sys
 import logging
-from fastapi import FastAPI
+from fastapi import FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
+from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
 from prometheus_fastapi_instrumentator import Instrumentator, metrics
-from prometheus_client import Counter, Histogram
+
+# Create a global instrumentator instance
+instrumentator = Instrumentator()
 
 # Add the parent directory to the path so we can import the scripts
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -56,6 +59,34 @@ app = FastAPI(
     redoc_url="/redoc"
 )
 
+# Instrument the app with Prometheus
+# This should be done after FastAPI app initialization and before adding routes/middleware.
+# The global 'instrumentator' instance (defined at the top) is used here.
+instrumentator.instrument(app)  # Adds default metrics like request counts, latency by path, etc.
+
+# Add custom-named standard metrics
+instrumentator.add(metrics.request_size(metric_name="mine_safety_api_request_size_bytes"))
+instrumentator.add(metrics.response_size(metric_name="mine_safety_api_response_size_bytes"))
+instrumentator.add(metrics.latency(metric_name="mine_safety_api_latency_seconds")) # Already a default, but this ensures our naming if needed
+instrumentator.add(metrics.requests(metric_name="mine_safety_api_requests_total")) # Already a default, but this ensures our naming if needed
+
+# Import our custom metrics registry
+from .metrics import custom_registry, initialize_metrics
+
+# Create a custom metrics endpoint that combines both registries
+@app.get("/metrics", tags=["monitoring"])
+async def metrics():
+    # Generate metrics from both the default registry and our custom registry
+    default_metrics = generate_latest()
+    custom_metrics = generate_latest(custom_registry)
+    
+    # Combine the metrics
+    combined_metrics = default_metrics + custom_metrics
+    
+    return Response(content=combined_metrics, media_type=CONTENT_TYPE_LATEST)
+
+logger.info("Prometheus metrics instrumentation initialized and /metrics endpoint exposed.")
+
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
@@ -71,6 +102,24 @@ app.include_router(router)
 # Try to start MLflow server on startup if available
 @app.on_event("startup")
 async def startup_event():
+    # Log startup information
+    logger.info("Starting Mine Safety Injury Rate Prediction API")
+    logger.info(f"Environment: {os.environ.get('ENVIRONMENT', 'development')}")
+    
+    # Initialize metrics with default labels
+    initialize_metrics()
+    logger.info("Metrics initialized with default labels")
+    
+    # Log model directories
+    models_dir = os.environ.get('MODELS_DIR', os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'models'))
+    data_dir = os.environ.get('DATA_DIR', os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'data'))
+    features_dir = os.environ.get('FEATURES_DIR', os.path.join(data_dir, 'features'))
+    
+    logger.info(f"Models directory: {models_dir}")
+    logger.info(f"Data directory: {data_dir}")
+    logger.info(f"Features directory: {features_dir}")
+    
+    # Handle MLflow if available
     if MLFLOW_AVAILABLE:
         try:
             # Get the active model version to log it
@@ -86,78 +135,8 @@ async def startup_event():
     else:
         logger.info("MLflow integration not available")
 
-    logger.info("Starting Mine Safety Injury Rate Prediction API")
-    logger.info(f"Environment: {os.environ.get('ENVIRONMENT', 'development')}")
-    
-    # Log model directories
-    models_dir = os.environ.get('MODELS_DIR', os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'models'))
-    data_dir = os.environ.get('DATA_DIR', os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'data'))
-    features_dir = os.environ.get('FEATURES_DIR', os.path.join(data_dir, 'features'))
-    
-    logger.info(f"Models directory: {models_dir}")
-    logger.info(f"Data directory: {data_dir}")
-    logger.info(f"Features directory: {features_dir}")
-
-# Set up Prometheus metrics
-instrumentator = Instrumentator()
-
-# Add default metrics
-instrumentator.instrument(app)
-
-# Add custom metrics
-# Request size
-instrumentator.add(
-    metrics.request_size(metric_name="mine_safety_api_request_size_bytes")
-)
-
-# Response size
-instrumentator.add(
-    metrics.response_size(metric_name="mine_safety_api_response_size_bytes")
-)
-
-# Latency by endpoint and method
-instrumentator.add(
-    metrics.latency(metric_name="mine_safety_api_latency_seconds")
-)
-
-# Add exception metrics
-instrumentator.add(
-    metrics.requests(metric_name="mine_safety_api_requests_total")
-)
-
-# Add model version metrics counter
-model_version_counter = Counter(
-    "mine_safety_api_model_version_total",
-    "Number of predictions by model version",
-    ["version"]
-)
-
-# Add prediction latency histogram by model version
-prediction_latency = Histogram(
-    "mine_safety_api_prediction_latency_seconds",
-    "Prediction latency by model version",
-    ["version"],
-    buckets=(0.005, 0.01, 0.025, 0.05, 0.075, 0.1, 0.25, 0.5, 0.75, 1.0, 2.5, 5.0, 7.5, 10.0)
-)
-
-# Initialize metrics
-instrumentator.expose(app)
-instrumentator.expose(app, endpoint="/metrics", include_in_schema=True, tags=["monitoring"])
-
-@app.on_event("startup")
-async def startup_event():
-    """Log startup information."""
-    logger.info("Starting Mine Safety Injury Rate Prediction API")
-    logger.info(f"Environment: {os.environ.get('ENVIRONMENT', 'development')}")
-    
-    # Log model directories
-    models_dir = os.environ.get('MODELS_DIR', os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'models'))
-    data_dir = os.environ.get('DATA_DIR', os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'data'))
-    features_dir = os.environ.get('FEATURES_DIR', os.path.join(data_dir, 'features'))
-    
-    logger.info(f"Models directory: {models_dir}")
-    logger.info(f"Data directory: {data_dir}")
-    logger.info(f"Features directory: {features_dir}")
+# Import metrics from metrics.py
+from .metrics import model_version_counter, prediction_latency
 
 @app.on_event("shutdown")
 async def shutdown_event():

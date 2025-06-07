@@ -21,6 +21,9 @@ httpx = "^0.28.1"
 requests = "^2.32.3"
 prometheus-fastapi-instrumentator = "5.9.1"
 mlflow = "^2.22.0"
+hyperopt = "^0.2.7"
+setuptools = "^80.9.0"
+imbalanced-learn = "^0.13.0"
 
 [tool.poetry.dev-dependencies]
 pytest = "^7.3.1"

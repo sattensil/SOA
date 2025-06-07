@@ -1,151 +1,321 @@
-feature,importance
-PCT_HRS_UNDERGROUND,0.86453325
-PCT_HRS_MILL_PREP,0.07619216
-PRIMARY_Gold_1,0.059274632
-US_STATE_AL,0.0
-PRIMARY_Manganese_1,0.0
-PRIMARY_Lead and/or Zinc Ore_1,0.0
-PRIMARY_Leonardite_1,0.0
-PRIMARY_Lime_1,0.0
-PRIMARY_Limestone_1,0.0
-PRIMARY_Magnesite_1,0.0
-PRIMARY_Marble_1,0.0
-PRIMARY_Iron Ore_1,0.0
-PRIMARY_Metal Ores_1,0.0
-PRIMARY_Mica_1,0.0
-PRIMARY_Molybdenum_1,0.0
-PRIMARY_NEC_1,0.0
-PRIMARY_Nickel_1,0.0
-PRIMARY_Nonmetallic minerals_1,0.0
-PRIMARY_Oil Mining_1,0.0
-PRIMARY_Kyanite_1,0.0
-PRIMARY_Granite_1,0.0
-PRIMARY_Gypsum_1,0.0
-PRIMARY_Chromite_1,0.0
-PRIMARY_Beryl_1,0.0
-PRIMARY_Bituminous_1,0.0
-PRIMARY_Boron materials_1,0.0
-PRIMARY_Brucite_1,0.0
-PRIMARY_Cement_1,0.0
-PRIMARY_Chemical and Fertilizer_1,0.0
-PRIMARY_Clay_1,0.0
-PRIMARY_Aplite_1,0.0
-PRIMARY_Coal_1,0.0
-PRIMARY_Copper Ore_1,0.0
-PRIMARY_Feldspar_1,0.0
-PRIMARY_Fluorspar_1,0.0
-PRIMARY_Gemstones_1,0.0
-PRIMARY_Gilsonite_1,0.0
-PRIMARY_Oil Sand_1,0.0
-PRIMARY_Oil Shale_1,0.0
-PRIMARY_Perlite_1,0.0
-PRIMARY_Titanium_1,0.0
-PRIMARY_Trona_1,0.0
-PRIMARY_Tungsten_1,0.0
-PRIMARY_Uranimum_1,0.0
-PRIMARY_Vanadium_1,0.0
-PRIMARY_Vermiculite_1,0.0
-PRIMARY_and Borate minerals_1,0.0
-PRIMARY_and Pyrophylite_1,0.0
-PRIMARY_ceramic and factory_1,0.0
-PRIMARY_common_1,0.0
-PRIMARY_crushed and broken_1,0.0
-PRIMARY_dimension_1,0.0
-PRIMARY_evaporated_1,0.0
-PRIMARY_fire_1,0.0
-PRIMARY_industrial_1,0.0
-PRIMARY_mill_1,0.0
-PRIMARY_Traprock_1,0.0
-PRIMARY_Talc_1,0.0
-PRIMARY_Phosphate rock_1,0.0
-PRIMARY_Stone_1,0.0
-PRIMARY_Pigment material_1,0.0
-PRIMARY_Platinum_1,0.0
-PRIMARY_Potash_1,0.0
-PRIMARY_Pumice_1,0.0
-PRIMARY_Rare Earth_1,0.0
-PRIMARY_Salt_1,0.0
-PRIMARY_Sand_1,0.0
-PRIMARY_Sand & gravel_1,0.0
-PRIMARY_Sandstone_1,0.0
-PRIMARY_Shale_1,0.0
-PRIMARY_Silver Ore_1,0.0
-PRIMARY_Slate_1,0.0
-PRIMARY_Soapstone_1,0.0
-PRIMARY_Soda_1,0.0
-PRIMARY_Sodium compounds_1,0.0
-PRIMARY_Barite_1,0.0
-PRIMARY_Antimony_1,0.0
-US_STATE_AR,0.0
-US_STATE_PA,0.0
-US_STATE_MI,0.0
-US_STATE_MN,0.0
-US_STATE_MO,0.0
-US_STATE_MS,0.0
-US_STATE_MT,0.0
-US_STATE_NC,0.0
-US_STATE_ND,0.0
-US_STATE_NE,0.0
-US_STATE_NH,0.0
-US_STATE_NJ,0.0
-US_STATE_NM,0.0
-US_STATE_NV,0.0
-US_STATE_NY,0.0
-US_STATE_OH,0.0
-US_STATE_OK,0.0
-US_STATE_ME,0.0
-US_STATE_MD,0.0
-US_STATE_MA,0.0
-US_STATE_GA,0.0
-US_STATE_AZ,0.0
-US_STATE_CA,0.0
-US_STATE_CO,0.0
-US_STATE_CT,0.0
-US_STATE_DE,0.0
-US_STATE_FL,0.0
-US_STATE_HI,0.0
-US_STATE_LA,0.0
-US_STATE_IA,0.0
-US_STATE_ID,0.0
-US_STATE_IL,0.0
-US_STATE_IN,0.0
-US_STATE_KS,0.0
-US_STATE_KY,0.0
-US_STATE_OR,0.0
-US_STATE_PR,0.0
-PRIMARY_Anthracite_1,0.0
-US_STATE_RI,0.0
-TYPE_OF_MINE_Underground,0.0
-YEAR,0.0
-SEAM_HEIGHT,0.0
-AVG_EMP_TOTAL,0.0
-PCT_HRS_SURFACE,0.0
-PCT_HRS_STRIP,0.0
-PCT_HRS_AUGER,0.0
-PCT_HRS_CULM_BANK,0.0
-PCT_HRS_DREDGE,0.0
-PCT_HRS_OTHER_SURFACE,0.0
-PCT_HRS_SHOP_YARD,0.0
-PCT_HRS_OFFICE,0.0
-LOG_AVG_EMP_TOTAL,0.0
-PRIMARY_Alumina_1,0.0
-PRIMARY_Aluminum Ore_1,0.0
-TYPE_OF_MINE_Surface,0.0
-TYPE_OF_MINE_Sand & gravel,0.0
-COMMODITY_Stone,0.0
-US_STATE_VI,0.0
-US_STATE_SC,0.0
-US_STATE_SD,0.0
-US_STATE_TN,0.0
-US_STATE_TX,0.0
-US_STATE_UT,0.0
-US_STATE_VA,0.0
-US_STATE_VT,0.0
-COMMODITY_Sand & gravel,0.0
-US_STATE_WA,0.0
-US_STATE_WI,0.0
-US_STATE_WV,0.0
-US_STATE_WY,0.0
-COMMODITY_Metal,0.0
-COMMODITY_Nonmetal,0.0
-PRIMARY_rock_1,0.0
+feature,importance,model
+AVG_EMP_TOTAL,0.15284948,Classification
+US_STATE_OR,0.01892721,Classification
+PRIMARY_industrial_1,0.015629636,Classification
+US_STATE_ME,0.015199411,Classification
+PRIMARY_Nonmetallic minerals_1,0.014464663,Classification
+US_STATE_CA,0.013558601,Classification
+PRIMARY_fire_1,0.013103975,Classification
+US_STATE_WA,0.012949065,Classification
+PRIMARY_Anthracite_1,0.012911759,Classification
+US_STATE_WI,0.01253064,Classification
+US_STATE_TN,0.012407152,Classification
+PRIMARY_common_1,0.012379397,Classification
+US_STATE_MN,0.012081049,Classification
+PRIMARY_Iron Ore_1,0.011799345,Classification
+PRIMARY_Sand_1,0.011741637,Classification
+US_STATE_OH,0.011550926,Classification
+US_STATE_MI,0.011396034,Classification
+US_STATE_IN,0.01128348,Classification
+US_STATE_SD,0.011260669,Classification
+US_STATE_WY,0.011044878,Classification
+PCT_HRS_CULM_BANK,0.011012324,Classification
+HRS_PER_EMP,0.010765473,Classification
+US_STATE_NM,0.010729236,Classification
+PRIMARY_dimension_1,0.0107173845,Classification
+PRIMARY_Sandstone_1,0.010611542,Classification
+PRIMARY_crushed and broken_1,0.010605938,Classification
+PRIMARY_Granite_1,0.010569793,Classification
+US_STATE_NY,0.010236221,Classification
+COMMODITY_Nonmetal,0.010230449,Classification
+PRIMARY_Chemical and Fertilizer_1,0.01017393,Classification
+US_STATE_CT,0.010107929,Classification
+US_STATE_AZ,0.010037712,Classification
+US_STATE_KY,0.009856303,Classification
+PRIMARY_Limestone_1,0.009656108,Classification
+EMP_X_STRIP,0.009642399,Classification
+US_STATE_NC,0.009622595,Classification
+US_STATE_TX,0.009540675,Classification
+PCT_HRS_OFFICE,0.009430726,Classification
+US_STATE_OK,0.009390612,Classification
+US_STATE_NE,0.009361017,Classification
+US_STATE_MD,0.00935708,Classification
+PCT_HRS_DREDGE,0.009313768,Classification
+US_STATE_CO,0.00931165,Classification
+US_STATE_PA,0.0092958165,Classification
+PRIMARY_Slate_1,0.009276052,Classification
+PCT_HRS_STRIP,0.00927468,Classification
+EMP_X_OFFICE,0.009247219,Classification
+US_STATE_VT,0.008755744,Classification
+US_STATE_AR,0.008650163,Classification
+US_STATE_HI,0.008486918,Classification
+PRIMARY_Sand & gravel_1,0.008486898,Classification
+US_STATE_WV,0.008110263,Classification
+US_STATE_GA,0.008109808,Classification
+RISK_SCORE,0.007868947,Classification
+PRIMARY_Stone_1,0.007845336,Classification
+PRIMARY_Traprock_1,0.007745876,Classification
+US_STATE_AL,0.0076169414,Classification
+PRIMARY_Clay_1,0.007546495,Classification
+US_STATE_FL,0.00735412,Classification
+PRIMARY_NEC_1,0.0072173406,Classification
+US_STATE_IL,0.0071794963,Classification
+US_STATE_IA,0.0070145265,Classification
+PCT_HRS_MILL_PREP,0.0069083804,Classification
+US_STATE_PR,0.0067964313,Classification
+PRIMARY_Barite_1,0.006715841,Classification
+PCT_HRS_UNDERGROUND,0.006483709,Classification
+US_STATE_KS,0.006408212,Classification
+PRIMARY_Gypsum_1,0.0063320803,Classification
+EMP_X_UNDERGROUND,0.0062060426,Classification
+US_STATE_MA,0.0062008775,Classification
+US_STATE_ND,0.0060692164,Classification
+US_STATE_LA,0.006051633,Classification
+PRIMARY_Gold_1,0.0057117455,Classification
+PCT_HRS_SURFACE,0.005617904,Classification
+PRIMARY_Shale_1,0.005214054,Classification
+PCT_HRS_SHOP_YARD,0.005169977,Classification
+PCT_HRS_OTHER_SURFACE,0.005159993,Classification
+YEAR,0.0051528737,Classification
+US_STATE_RI,0.0051062335,Classification
+PRIMARY_Mica_1,0.0050580367,Classification
+TYPE_OF_MINE_Surface,0.00501569,Classification
+US_STATE_MO,0.004936139,Classification
+COMMODITY_Sand & gravel,0.0049296045,Classification
+PRIMARY_Cement_1,0.0049159103,Classification
+US_STATE_VA,0.0048549003,Classification
+US_STATE_MT,0.0048076897,Classification
+US_STATE_ID,0.004785248,Classification
+PRIMARY_Gemstones_1,0.0046799784,Classification
+SEAM_HEIGHT,0.004443049,Classification
+US_STATE_NV,0.0043802955,Classification
+PRIMARY_Bituminous_1,0.0043603717,Classification
+EMP_X_SURFACE,0.0042762114,Classification
+COMMODITY_Stone,0.0042687915,Classification
+PCT_HRS_AUGER,0.0041711642,Classification
+PRIMARY_ceramic and factory_1,0.0041404883,Classification
+COMMODITY_Metal,0.0039039797,Classification
+PRIMARY_Rare Earth_1,0.003846061,Classification
+PRIMARY_Salt_1,0.003810979,Classification
+US_STATE_UT,0.0037048839,Classification
+US_STATE_NH,0.003685999,Classification
+US_STATE_MS,0.0035714237,Classification
+PRIMARY_Copper Ore_1,0.0026962322,Classification
+PRIMARY_Soapstone_1,0.002592569,Classification
+US_STATE_DE,0.002495189,Classification
+PRIMARY_Aluminum Ore_1,0.002408977,Classification
+PRIMARY_Boron materials_1,0.0022617425,Classification
+PRIMARY_Pigment material_1,0.0020748326,Classification
+TYPE_OF_MINE_Underground,0.0014709639,Classification
+PRIMARY_Phosphate rock_1,0.001066625,Classification
+PRIMARY_Silver Ore_1,0.00064827193,Classification
+PRIMARY_Soda_1,0.0,Classification
+PRIMARY_and Pyrophylite_1,0.0,Classification
+PRIMARY_Potash_1,0.0,Classification
+PRIMARY_Pumice_1,0.0,Classification
+PRIMARY_Platinum_1,0.0,Classification
+PRIMARY_evaporated_1,0.0,Classification
+PRIMARY_mill_1,0.0,Classification
+PRIMARY_and Borate minerals_1,0.0,Classification
+PRIMARY_Sodium compounds_1,0.0,Classification
+PRIMARY_Vermiculite_1,0.0,Classification
+PRIMARY_Vanadium_1,0.0,Classification
+PRIMARY_Tungsten_1,0.0,Classification
+PRIMARY_Trona_1,0.0,Classification
+PRIMARY_Titanium_1,0.0,Classification
+PRIMARY_Talc_1,0.0,Classification
+PRIMARY_Uranimum_1,0.0,Classification
+HIGH_OFFICE_HRS,0.0,Classification
+PRIMARY_Perlite_1,0.0,Classification
+PRIMARY_Coal_1,0.0,Classification
+US_STATE_NJ,0.0,Classification
+US_STATE_SC,0.0,Classification
+US_STATE_VI,0.0,Classification
+TYPE_OF_MINE_Sand & gravel,0.0,Classification
+LOG_AVG_EMP_TOTAL,0.0,Classification
+AVG_EMP_TOTAL_SQ,0.0,Classification
+HIGH_UNDERGROUND,0.0,Classification
+LARGE_OPERATION,0.0,Classification
+PRIMARY_Alumina_1,0.0,Classification
+PRIMARY_Antimony_1,0.0,Classification
+PRIMARY_Aplite_1,0.0,Classification
+PRIMARY_Beryl_1,0.0,Classification
+PRIMARY_Brucite_1,0.0,Classification
+PRIMARY_Chromite_1,0.0,Classification
+PRIMARY_Feldspar_1,0.0,Classification
+PRIMARY_Oil Shale_1,0.0,Classification
+PRIMARY_Fluorspar_1,0.0,Classification
+PRIMARY_Gilsonite_1,0.0,Classification
+PRIMARY_Kyanite_1,0.0,Classification
+PRIMARY_Lead and/or Zinc Ore_1,0.0,Classification
+PRIMARY_Leonardite_1,0.0,Classification
+PRIMARY_Lime_1,0.0,Classification
+PRIMARY_Magnesite_1,0.0,Classification
+PRIMARY_Manganese_1,0.0,Classification
+PRIMARY_Marble_1,0.0,Classification
+PRIMARY_Metal Ores_1,0.0,Classification
+PRIMARY_Molybdenum_1,0.0,Classification
+PRIMARY_Nickel_1,0.0,Classification
+PRIMARY_Oil Mining_1,0.0,Classification
+PRIMARY_Oil Sand_1,0.0,Classification
+PRIMARY_rock_1,0.0,Classification
+AVG_EMP_TOTAL,0.41936842,Regression
+PCT_HRS_UNDERGROUND,0.026537891,Regression
+HRS_PER_EMP,0.024983674,Regression
+US_STATE_MS,0.019250179,Regression
+PRIMARY_Silver Ore_1,0.018902514,Regression
+PRIMARY_Anthracite_1,0.017579759,Regression
+PRIMARY_dimension_1,0.016989045,Regression
+PRIMARY_Alumina_1,0.012768948,Regression
+US_STATE_PA,0.012115533,Regression
+US_STATE_TN,0.011176486,Regression
+PRIMARY_Shale_1,0.011104655,Regression
+PRIMARY_Stone_1,0.010940114,Regression
+EMP_X_STRIP,0.010757488,Regression
+US_STATE_SD,0.008715917,Regression
+SEAM_HEIGHT,0.008701884,Regression
+EMP_X_UNDERGROUND,0.008400355,Regression
+US_STATE_OK,0.008332112,Regression
+US_STATE_OR,0.008192451,Regression
+COMMODITY_Stone,0.007871711,Regression
+PRIMARY_Gold_1,0.007815372,Regression
+PRIMARY_Lead and/or Zinc Ore_1,0.007797424,Regression
+US_STATE_MA,0.0077271643,Regression
+US_STATE_CO,0.007574952,Regression
+COMMODITY_Nonmetal,0.0075393543,Regression
+PRIMARY_Sandstone_1,0.0071331435,Regression
+US_STATE_UT,0.007098003,Regression
+PRIMARY_NEC_1,0.0070587336,Regression
+PRIMARY_Traprock_1,0.0069490303,Regression
+US_STATE_WA,0.0068548666,Regression
+US_STATE_AZ,0.0067514335,Regression
+US_STATE_IL,0.006745988,Regression
+US_STATE_OH,0.0067139757,Regression
+TYPE_OF_MINE_Underground,0.006665755,Regression
+EMP_X_OFFICE,0.006623207,Regression
+PCT_HRS_STRIP,0.006452835,Regression
+PRIMARY_Limestone_1,0.0063929884,Regression
+PRIMARY_Coal_1,0.006287292,Regression
+US_STATE_AR,0.0060994574,Regression
+PRIMARY_Nonmetallic minerals_1,0.006022668,Regression
+PRIMARY_Cement_1,0.0057842503,Regression
+COMMODITY_Metal,0.005745372,Regression
+US_STATE_GA,0.0056395023,Regression
+PRIMARY_Sand_1,0.005473051,Regression
+COMMODITY_Sand & gravel,0.0053809,Regression
+PCT_HRS_MILL_PREP,0.005257851,Regression
+RISK_SCORE,0.0052348613,Regression
+YEAR,0.0051189736,Regression
+US_STATE_KY,0.0050654095,Regression
+EMP_X_SURFACE,0.005064484,Regression
+PRIMARY_Sand & gravel_1,0.0049907505,Regression
+US_STATE_NJ,0.0049490877,Regression
+US_STATE_KS,0.0049021184,Regression
+US_STATE_TX,0.0048966375,Regression
+PCT_HRS_OFFICE,0.004884884,Regression
+PRIMARY_crushed and broken_1,0.0048827976,Regression
+US_STATE_IA,0.004740202,Regression
+PRIMARY_industrial_1,0.0046173465,Regression
+PCT_HRS_DREDGE,0.0045576883,Regression
+PCT_HRS_SURFACE,0.004555146,Regression
+US_STATE_ID,0.0044935215,Regression
+PRIMARY_Lime_1,0.004461599,Regression
+US_STATE_VA,0.004391238,Regression
+PRIMARY_common_1,0.0043591945,Regression
+PRIMARY_Clay_1,0.0043524434,Regression
+US_STATE_WV,0.0042154444,Regression
+US_STATE_NC,0.003829528,Regression
+PRIMARY_Marble_1,0.003676937,Regression
+US_STATE_NV,0.0036006218,Regression
+US_STATE_MN,0.0034972264,Regression
+US_STATE_AL,0.0034591719,Regression
+US_STATE_MO,0.0034195865,Regression
+US_STATE_WI,0.0030995433,Regression
+US_STATE_NY,0.003038105,Regression
+US_STATE_VT,0.0029645846,Regression
+PRIMARY_Bituminous_1,0.0029385847,Regression
+US_STATE_ND,0.0028356765,Regression
+US_STATE_MI,0.0028308665,Regression
+PRIMARY_Granite_1,0.002817716,Regression
+TYPE_OF_MINE_Surface,0.002801818,Regression
+PCT_HRS_AUGER,0.0026246891,Regression
+PRIMARY_Iron Ore_1,0.0025405097,Regression
+US_STATE_IN,0.0023551846,Regression
+US_STATE_FL,0.0023038608,Regression
+PRIMARY_Copper Ore_1,0.0021926665,Regression
+PRIMARY_Gypsum_1,0.0020792896,Regression
+US_STATE_WY,0.0020581705,Regression
+US_STATE_ME,0.001998742,Regression
+US_STATE_CA,0.0016934158,Regression
+US_STATE_NM,0.0016860355,Regression
+US_STATE_MD,0.0013687703,Regression
+US_STATE_LA,0.0011971375,Regression
+US_STATE_NE,0.0011789973,Regression
+US_STATE_MT,0.0009049633,Regression
+PRIMARY_Rare Earth_1,0.0,Regression
+PRIMARY_Oil Shale_1,0.0,Regression
+PRIMARY_Pigment material_1,0.0,Regression
+PRIMARY_Perlite_1,0.0,Regression
+PRIMARY_Pumice_1,0.0,Regression
+PRIMARY_ceramic and factory_1,0.0,Regression
+PRIMARY_mill_1,0.0,Regression
+PRIMARY_Potash_1,0.0,Regression
+PRIMARY_Platinum_1,0.0,Regression
+PRIMARY_Phosphate rock_1,0.0,Regression
+PRIMARY_Vanadium_1,0.0,Regression
+PRIMARY_Salt_1,0.0,Regression
+PRIMARY_fire_1,0.0,Regression
+PRIMARY_Uranimum_1,0.0,Regression
+PRIMARY_and Pyrophylite_1,0.0,Regression
+PRIMARY_Slate_1,0.0,Regression
+PRIMARY_Soapstone_1,0.0,Regression
+PRIMARY_Soda_1,0.0,Regression
+PRIMARY_Sodium compounds_1,0.0,Regression
+PRIMARY_Talc_1,0.0,Regression
+PRIMARY_Titanium_1,0.0,Regression
+PRIMARY_Oil Sand_1,0.0,Regression
+PRIMARY_Trona_1,0.0,Regression
+PRIMARY_Tungsten_1,0.0,Regression
+PRIMARY_and Borate minerals_1,0.0,Regression
+PRIMARY_Vermiculite_1,0.0,Regression
+PRIMARY_evaporated_1,0.0,Regression
+HIGH_OFFICE_HRS,0.0,Regression
+PRIMARY_Oil Mining_1,0.0,Regression
+TYPE_OF_MINE_Sand & gravel,0.0,Regression
+LARGE_OPERATION,0.0,Regression
+HIGH_UNDERGROUND,0.0,Regression
+AVG_EMP_TOTAL_SQ,0.0,Regression
+LOG_AVG_EMP_TOTAL,0.0,Regression
+PCT_HRS_SHOP_YARD,0.0,Regression
+PCT_HRS_OTHER_SURFACE,0.0,Regression
+PCT_HRS_CULM_BANK,0.0,Regression
+US_STATE_VI,0.0,Regression
+PRIMARY_Antimony_1,0.0,Regression
+US_STATE_SC,0.0,Regression
+US_STATE_RI,0.0,Regression
+US_STATE_PR,0.0,Regression
+US_STATE_NH,0.0,Regression
+US_STATE_HI,0.0,Regression
+US_STATE_DE,0.0,Regression
+US_STATE_CT,0.0,Regression
+PRIMARY_Aluminum Ore_1,0.0,Regression
+PRIMARY_Aplite_1,0.0,Regression
+PRIMARY_Nickel_1,0.0,Regression
+PRIMARY_Gilsonite_1,0.0,Regression
+PRIMARY_Molybdenum_1,0.0,Regression
+PRIMARY_Mica_1,0.0,Regression
+PRIMARY_Metal Ores_1,0.0,Regression
+PRIMARY_Manganese_1,0.0,Regression
+PRIMARY_Magnesite_1,0.0,Regression
+PRIMARY_Leonardite_1,0.0,Regression
+PRIMARY_Kyanite_1,0.0,Regression
+PRIMARY_Gemstones_1,0.0,Regression
+PRIMARY_Barite_1,0.0,Regression
+PRIMARY_Fluorspar_1,0.0,Regression
+PRIMARY_Feldspar_1,0.0,Regression
+PRIMARY_Chromite_1,0.0,Regression
+PRIMARY_Chemical and Fertilizer_1,0.0,Regression
+PRIMARY_Brucite_1,0.0,Regression
+PRIMARY_Boron materials_1,0.0,Regression
+PRIMARY_Beryl_1,0.0,Regression
+PRIMARY_rock_1,0.0,Regression

@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 # Define constants
 MLFLOW_TRACKING_URI = os.environ.get('MLFLOW_TRACKING_URI', 'mlruns')
 EXPERIMENT_NAME = "mine_safety_injury_rate_prediction"
-MODEL_NAME = "mine_safety_xgboost"
+MODEL_NAME = "mine-safety-injury-rate-model"
 MODELS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "models")
 MODEL_VERSION_FILE = os.path.join(MODELS_DIR, "active_model_version.txt")
 
@@ -90,7 +90,17 @@ def log_model_training(
         
         # Log metrics
         for key, value in metrics.items():
-            mlflow.log_metric(key, value)
+            # Skip lists, arrays, and other non-numeric values
+            if isinstance(value, (int, float)) and not isinstance(value, bool):
+                mlflow.log_metric(key, value)
+            elif isinstance(value, np.ndarray) and value.size == 1:
+                # Handle numpy scalars
+                mlflow.log_metric(key, float(value))
+            else:
+                # Log as a parameter instead for non-numeric values
+                logger.debug(f"Skipping metric {key} with non-numeric value type {type(value)}")
+                # Optionally log as string parameter if needed
+                # mlflow.log_param(f"metric_{key}", str(value))
         
         # Log feature names
         feature_names_path = os.path.join(MODELS_DIR, "feature_names.joblib")
@@ -99,16 +109,37 @@ def log_model_training(
         mlflow.log_artifact(feature_names_path, "artifacts")
         
         # Log model
-        mlflow.xgboost.log_model(
-            model, 
-            "model", 
-            registered_model_name=MODEL_NAME
-        )
-        
-        # Log feature importance
-        importance_df = pd.DataFrame({
-            'feature': feature_names,
-            'importance': model.feature_importances_
+        if isinstance(model, dict) and model.get('type') == 'two_stage':
+            # For two-stage models, log the regression model (second stage)
+            logger.info("Logging two-stage model - using regression model for MLflow")
+            mlflow.xgboost.log_model(
+                model['regression'], 
+                "regression_model", 
+                registered_model_name=MODEL_NAME
+            )
+            
+            # Also save the classification model as an artifact
+            clf_model_path = os.path.join(MODELS_DIR, "classification_model.joblib")
+            joblib.dump(model['classification'], clf_model_path)
+            mlflow.log_artifact(clf_model_path, "artifacts")
+            
+            # Log feature importance for regression model
+            importance_df = pd.DataFrame({
+                'feature': feature_names,
+                'importance': model['regression'].feature_importances_
+            })
+        else:
+            # For single models
+            mlflow.xgboost.log_model(
+                model, 
+                "model", 
+                registered_model_name=MODEL_NAME
+            )
+            
+            # Log feature importance
+            importance_df = pd.DataFrame({
+                'feature': feature_names,
+                'importance': model.feature_importances_
         }).sort_values('importance', ascending=False)
         
         # Save feature importance to CSV
@@ -279,8 +310,11 @@ def start_mlflow_server():
     # Create the mlruns directory if it doesn't exist
     os.makedirs(MLFLOW_TRACKING_URI, exist_ok=True)
     
+    # Get the MLflow port from environment variable or use default
+    mlflow_port = os.environ.get('MLFLOW_PORT', '5000')
+    
     # Start the MLflow server
-    cmd = [sys.executable, "-m", "mlflow", "ui", "--port", "5000"]
+    cmd = [sys.executable, "-m", "mlflow", "ui", "--port", mlflow_port]
     subprocess.Popen(cmd)
     
-    logger.info("Started MLflow server on port 5000")
+    logger.info(f"Started MLflow server on port {mlflow_port}")

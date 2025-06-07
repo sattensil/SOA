@@ -1,0 +1,13 @@
+apiVersion: 1
+
+datasources:
+  - name: Mine Safety Metrics
+    type: frser-sqlite-datasource
+    access: proxy
+    isDefault: false
+    editable: true
+    jsonData:
+      path: /var/lib/grafana/metrics/model_metrics.db
+      pathPrefix: file:
+      mode: ro
+    version: 1
